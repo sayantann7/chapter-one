@@ -2,7 +2,7 @@
 
 ## Current Status
 
-✅ Phase 0 - Monorepo & Project Foundation Initialized.
+✅ Authentication Architecture Design Completed.
 
 ---
 
@@ -17,6 +17,7 @@
 - Docker Compose configuration (`docker-compose.yml` for PostgreSQL 16 & Redis 7)
 - Environment templates (`.env.example` at root, backend, frontend, mobile)
 - Workspace builds & linting verification passed across all packages
+- Designed complete authentication architecture in `docs/authentication-design.md` (Goals, User Lifecycle, Auth Flow, JWT Strategy, Refresh Token Rotation, Argon2id Password Hashing, Prisma Schema Proposals, NestJS Folder Structure, REST API Contracts, Validation Rules, Security Mitigations, Mermaid Sequence Diagrams, and Architectural Tradeoffs)
 
 ---
 
@@ -28,7 +29,7 @@ None.
 
 ## Next Task
 
-Phase 1 — Authentication (Signup, Login, JWT, Refresh Token)
+Phase 1 — Authentication Implementation (Signup, Login, JWT, Refresh Token)
 
 ---
 
@@ -40,12 +41,13 @@ None.
 
 ## Notes
 
-The repository foundation is fully initialized and verified.
+The authentication architecture design document is saved at `docs/authentication-design.md`.
 
 All implementation follows:
 
 - docs/vision.pdf
 - docs/prd.pdf
 - docs/system-design.pdf
+- docs/authentication-design.md
 
 The repository is the single source of truth.
