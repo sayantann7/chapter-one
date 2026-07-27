@@ -9,6 +9,7 @@ describe("VerificationService", () => {
   const mockRedisService = {
     set: jest.fn().mockResolvedValue("OK"),
     get: jest.fn().mockResolvedValue("123456"),
+    del: jest.fn().mockResolvedValue(1),
   };
 
   beforeEach(async () => {
@@ -43,5 +44,16 @@ describe("VerificationService", () => {
       "123456",
       900,
     );
+  });
+
+  it("should retrieve verification code from Redis", async () => {
+    const code = await service.getVerificationCode("user-123");
+    expect(redisService.get).toHaveBeenCalledWith("auth:code:user-123");
+    expect(code).toBe("123456");
+  });
+
+  it("should delete verification code from Redis", async () => {
+    await service.deleteVerificationCode("user-123");
+    expect(redisService.del).toHaveBeenCalledWith("auth:code:user-123");
   });
 });

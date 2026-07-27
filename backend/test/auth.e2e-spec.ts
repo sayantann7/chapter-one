@@ -9,7 +9,9 @@ describe("AuthController (e2e)", () => {
   let app: INestApplication;
   let prisma: PrismaService;
   let redis: RedisService;
-  const testEmail = `e2e_register_${Date.now()}@example.com`;
+  const testEmail = `e2e_verify_${Date.now()}@example.com`;
+  let testUserId: string;
+  let verificationCode: string;
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -33,13 +35,9 @@ describe("AuthController (e2e)", () => {
   });
 
   afterAll(async () => {
-    // Cleanup created test user
-    const createdUser = await prisma.user.findUnique({
-      where: { email: testEmail },
-    });
-    if (createdUser) {
-      await redis.del(`auth:code:${createdUser.id}`);
-      await prisma.user.delete({ where: { id: createdUser.id } });
+    if (testUserId) {
+      await redis.del(`auth:code:${testUserId}`);
+      await prisma.user.deleteMany({ where: { email: testEmail } });
     }
     await app.close();
   });
@@ -54,44 +52,65 @@ describe("AuthController (e2e)", () => {
       .expect(201);
 
     expect(res.body).toHaveProperty("statusCode", 201);
-    expect(res.body).toHaveProperty(
-      "message",
-      "Registration successful. Verification code sent.",
-    );
     expect(res.body.data).toHaveProperty("userId");
-    expect(res.body.data).toHaveProperty("status", "UNVERIFIED");
-    expect(res.body.data).toHaveProperty("verificationExpiresInSeconds", 900);
+    testUserId = res.body.data.userId;
 
-    // Verify user in PostgreSQL database
-    const dbUser = await prisma.user.findUnique({
-      where: { email: testEmail },
-    });
-    expect(dbUser).not.toBeNull();
-    expect(dbUser?.status).toBe("UNVERIFIED");
-    expect(dbUser?.passwordHash).toContain("$argon2id$");
-
-    // Verify code stored in Redis
-    const redisCode = await redis.get(`auth:code:${dbUser!.id}`);
-    expect(redisCode).not.toBeNull();
-    expect(redisCode).toHaveLength(6);
+    const storedCode = await redis.get(`auth:code:${testUserId}`);
+    expect(storedCode).not.toBeNull();
+    verificationCode = storedCode!;
   });
 
-  it("/api/v1/auth/register (POST) - duplicate email conflict (409)", async () => {
+  it("/api/v1/auth/verify-code (POST) - invalid code (400)", async () => {
     await request(app.getHttpServer())
-      .post("/api/v1/auth/register")
+      .post("/api/v1/auth/verify-code")
       .send({
-        email: testEmail,
-        password: "SecurePassword123!",
+        userId: testUserId,
+        code: "000000",
       })
-      .expect(409);
+      .expect(400);
   });
 
-  it("/api/v1/auth/register (POST) - validation failure (400)", async () => {
+  it("/api/v1/auth/verify-code (POST) - non-existent user (404)", async () => {
     await request(app.getHttpServer())
-      .post("/api/v1/auth/register")
+      .post("/api/v1/auth/verify-code")
       .send({
-        email: "invalid-email-format",
-        password: "123",
+        userId: "a0000000-0000-4000-a000-000000000000",
+        code: "123456",
+      })
+      .expect(404);
+  });
+
+  it("/api/v1/auth/verify-code (POST) - success", async () => {
+    const res = await request(app.getHttpServer())
+      .post("/api/v1/auth/verify-code")
+      .send({
+        userId: testUserId,
+        code: verificationCode,
+      })
+      .expect(200);
+
+    expect(res.body).toHaveProperty("statusCode", 200);
+    expect(res.body.data).toEqual({
+      userId: testUserId,
+      status: "PENDING_ONBOARDING",
+    });
+
+    // Check database state update
+    const dbUser = await prisma.user.findUnique({ where: { id: testUserId } });
+    expect(dbUser?.status).toBe("PENDING_ONBOARDING");
+    expect(dbUser?.isVerified).toBe(true);
+
+    // Check code deleted from Redis
+    const redisCode = await redis.get(`auth:code:${testUserId}`);
+    expect(redisCode).toBeNull();
+  });
+
+  it("/api/v1/auth/verify-code (POST) - code reuse attempt (400)", async () => {
+    await request(app.getHttpServer())
+      .post("/api/v1/auth/verify-code")
+      .send({
+        userId: testUserId,
+        code: verificationCode,
       })
       .expect(400);
   });

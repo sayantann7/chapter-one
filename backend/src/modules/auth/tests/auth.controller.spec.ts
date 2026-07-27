@@ -12,6 +12,10 @@ describe("AuthController", () => {
       status: "UNVERIFIED",
       verificationExpiresInSeconds: 900,
     }),
+    verifyCode: jest.fn().mockResolvedValue({
+      userId: "user-uuid-123",
+      status: "PENDING_ONBOARDING",
+    }),
   };
 
   beforeEach(async () => {
@@ -44,6 +48,25 @@ describe("AuthController", () => {
         userId: "user-uuid-123",
         status: "UNVERIFIED",
         verificationExpiresInSeconds: 900,
+      },
+    });
+  });
+
+  it("should call authService.verifyCode and return formatted response", async () => {
+    const dto = {
+      userId: "user-uuid-123",
+      code: "123456",
+    };
+
+    const res = await controller.verifyCode(dto);
+
+    expect(authService.verifyCode).toHaveBeenCalledWith(dto);
+    expect(res).toEqual({
+      statusCode: 200,
+      message: "Account verified successfully",
+      data: {
+        userId: "user-uuid-123",
+        status: "PENDING_ONBOARDING",
       },
     });
   });

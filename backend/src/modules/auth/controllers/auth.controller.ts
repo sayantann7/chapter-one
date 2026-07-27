@@ -1,11 +1,14 @@
 import { Body, Controller, HttpCode, HttpStatus, Post } from "@nestjs/common";
 import {
+  ApiBadRequestResponse,
   ApiConflictResponse,
+  ApiNotFoundResponse,
   ApiOperation,
   ApiResponse,
   ApiTags,
 } from "@nestjs/swagger";
 import { RegisterDto } from "../dto/register.dto";
+import { VerifyCodeDto } from "../dto/verify-code.dto";
 import { AuthService } from "../services/auth.service";
 
 @ApiTags("Auth")
@@ -43,6 +46,40 @@ export class AuthController {
     return {
       statusCode: HttpStatus.CREATED,
       message: "Registration successful. Verification code sent.",
+      data,
+    };
+  }
+
+  @Post("verify-code")
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: "Verify account using 6-digit code" })
+  @ApiResponse({
+    status: 200,
+    description:
+      "Account verified successfully. Status updated to PENDING_ONBOARDING.",
+    schema: {
+      example: {
+        statusCode: 200,
+        message: "Account verified successfully",
+        data: {
+          userId: "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d",
+          status: "PENDING_ONBOARDING",
+        },
+      },
+    },
+  })
+  @ApiBadRequestResponse({
+    description:
+      "Verification code is invalid, expired, or user is already verified",
+  })
+  @ApiNotFoundResponse({
+    description: "User account not found",
+  })
+  async verifyCode(@Body() dto: VerifyCodeDto) {
+    const data = await this.authService.verifyCode(dto);
+    return {
+      statusCode: HttpStatus.OK,
+      message: "Account verified successfully",
       data,
     };
   }

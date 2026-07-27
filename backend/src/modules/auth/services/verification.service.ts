@@ -24,4 +24,9 @@ export class VerificationService {
     const redisKey = `auth:code:${userId}`;
     return this.redisService.get(redisKey);
   }
+
+  async deleteVerificationCode(userId: string): Promise<void> {
+    const redisKey = `auth:code:${userId}`;
+    await this.redisService.del(redisKey);
+  }
 }

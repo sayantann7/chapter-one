@@ -2,37 +2,31 @@
 
 ## Feature
 
-User Registration
+Account Verification
 
 ---
 
 ## Goal
 
-Implement the user registration flow for Chapter One based on the approved authentication design.
+Implement the account verification flow for newly registered users.
 
-This is the first implementation task of the authentication module.
+This task completes the user registration journey by allowing users to verify the code generated during registration.
 
 ---
 
 ## Scope
 
-Implement ONLY the registration functionality.
+Implement ONLY the account verification feature.
 
 This includes:
 
-- Create the Auth module
-- Create User Prisma model (only fields required for registration)
-- Registration DTO
-- Request validation
-- Password hashing using Argon2id
-- Duplicate email validation
-- User creation
-- Verification code generation
-- Store verification code in Redis
-- Registration API endpoint
-- Swagger documentation
-- Unit tests
-- Integration tests
+- Verify 6-digit verification code
+- Validate expiration
+- Validate incorrect codes
+- Prevent code reuse
+- Update user status from UNVERIFIED to PENDING_ONBOARDING
+- Remove verification code from Redis after successful verification
+- Return success response
 
 ---
 
@@ -46,10 +40,9 @@ Do NOT implement:
 - Logout
 - Password Reset
 - OAuth
-- Government ID Verification
 - Profile Creation
 - Matching
-- Chat
+- Government Verification
 
 ---
 
@@ -57,12 +50,13 @@ Do NOT implement:
 
 The task is complete only when:
 
-- User can register successfully
-- Password is securely hashed
-- Duplicate email registration is rejected
-- Verification code is generated and stored
-- Validation works correctly
-- Swagger documentation is updated
+- Verification endpoint works correctly
+- Invalid codes are rejected
+- Expired codes are rejected
+- Used codes cannot be reused
+- User status updates correctly
+- Redis cleanup works
+- Swagger documentation updated
 - Unit tests pass
 - Integration tests pass
 - Build passes
@@ -73,11 +67,10 @@ The task is complete only when:
 
 ## Deliverables
 
-- Working registration endpoint
-- Prisma schema updates (only what is required)
+- Verification endpoint
 - DTOs
 - Services
 - Tests
 - Updated project/PROGRESS.md
 
-Do not implement any feature outside this scope.
+Do not implement features outside this scope.
