@@ -1,34 +1,83 @@
-Feature
+# Current Task
 
-Authentication Design
+## Feature
 
-Goal
+User Registration
 
-Design the authentication system.
+---
 
-Scope
+## Goal
 
-- User model
-- Authentication flow
-- JWT strategy
-- Refresh tokens
-- Folder structure
-- API specification
-- Validation
-- Security
+Implement the user registration flow for Chapter One based on the approved authentication design.
 
-Deliverables
+This is the first implementation task of the authentication module.
 
-- Architecture document
+---
 
-- API specification
+## Scope
 
-- Prisma schema proposal
+Implement ONLY the registration functionality.
 
-- Sequence diagrams
+This includes:
 
-No implementation.
+- Create the Auth module
+- Create User Prisma model (only fields required for registration)
+- Registration DTO
+- Request validation
+- Password hashing using Argon2id
+- Duplicate email validation
+- User creation
+- Verification code generation
+- Store verification code in Redis
+- Registration API endpoint
+- Swagger documentation
+- Unit tests
+- Integration tests
 
-No code.
+---
 
-No project modifications.
+## Out of Scope
+
+Do NOT implement:
+
+- Login
+- JWT generation
+- Refresh Tokens
+- Logout
+- Password Reset
+- OAuth
+- Government ID Verification
+- Profile Creation
+- Matching
+- Chat
+
+---
+
+## Definition of Done
+
+The task is complete only when:
+
+- User can register successfully
+- Password is securely hashed
+- Duplicate email registration is rejected
+- Verification code is generated and stored
+- Validation works correctly
+- Swagger documentation is updated
+- Unit tests pass
+- Integration tests pass
+- Build passes
+- Lint passes
+- No TypeScript errors exist
+
+---
+
+## Deliverables
+
+- Working registration endpoint
+- Prisma schema updates (only what is required)
+- DTOs
+- Services
+- Tests
+- Updated project/PROGRESS.md
+
+Do not implement any feature outside this scope.

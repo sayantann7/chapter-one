@@ -2,7 +2,7 @@
 
 ## Current Status
 
-✅ Authentication Architecture Design Completed.
+✅ Phase 1 — User Registration Feature Implemented & Verified.
 
 ---
 
@@ -17,7 +17,16 @@
 - Docker Compose configuration (`docker-compose.yml` for PostgreSQL 16 & Redis 7)
 - Environment templates (`.env.example` at root, backend, frontend, mobile)
 - Workspace builds & linting verification passed across all packages
-- Designed complete authentication architecture in `docs/authentication-design.md` (Goals, User Lifecycle, Auth Flow, JWT Strategy, Refresh Token Rotation, Argon2id Password Hashing, Prisma Schema Proposals, NestJS Folder Structure, REST API Contracts, Validation Rules, Security Mitigations, Mermaid Sequence Diagrams, and Architectural Tradeoffs)
+- Designed complete authentication architecture in `docs/authentication-design.md`
+- Implemented **User Registration** feature (`POST /api/v1/auth/register`) in NestJS:
+  - Added `argon2` dependency and implemented Argon2id password hashing (`PasswordService`)
+  - Updated Prisma `User` schema and `UserStatus` enum (`UNVERIFIED`, `PENDING_ONBOARDING`, etc.)
+  - Created `RegisterDto` with `class-validator` rules & `class-transformer` lowercasing
+  - Implemented `VerificationService` generating 6-digit numeric codes stored in Redis (`auth:code:<userId>`, TTL 900s)
+  - Implemented `AuthService` handling duplicate email validation (`ConflictException` 409) and user creation
+  - Configured global `ValidationPipe` and Swagger UI (`/api/docs`) in `main.ts`
+  - Created unit tests (`auth.service.spec.ts`, `auth.controller.spec.ts`, `password.service.spec.ts`, `verification.service.spec.ts`)
+  - Created E2E integration test suite (`test/auth.e2e-spec.ts`)
 
 ---
 
@@ -29,7 +38,7 @@ None.
 
 ## Next Task
 
-Phase 1 — Authentication Implementation (Signup, Login, JWT, Refresh Token)
+Phase 1 — Email/Phone Code Verification & Login Flow (JWT & Refresh Token Rotation)
 
 ---
 
@@ -41,7 +50,7 @@ None.
 
 ## Notes
 
-The authentication architecture design document is saved at `docs/authentication-design.md`.
+The User Registration feature is fully verified. Unit tests (4 suites, 11 tests) and E2E integration tests (3 tests) pass cleanly.
 
 All implementation follows:
 

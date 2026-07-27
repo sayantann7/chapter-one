@@ -7,14 +7,31 @@ generator client {
   provider = "prisma-client-js"
 }
 
+enum UserStatus {
+  UNVERIFIED
+  PENDING_ONBOARDING
+  PENDING_VERIFICATION
+  VERIFIED
+  SUSPENDED
+  DEACTIVATED
+}
+
+enum Role {
+  USER
+  ADMIN
+  MODERATOR
+}
+
 model User {
-  id               String          @id @default(uuid())
-  email            String?         @unique
-  phoneNumber      String?         @unique
+  id               String       @id @default(uuid())
+  email            String?      @unique
+  phoneNumber      String?      @unique
   passwordHash     String?
-  isVerified       Boolean         @default(false)
-  createdAt        DateTime        @default(now())
-  updatedAt        DateTime        @updatedAt
+  status           UserStatus   @default(UNVERIFIED)
+  role             Role         @default(USER)
+  isVerified       Boolean      @default(false)
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
 
   profile          Profile?
   sentIntroductions Introduction[] @relation("UserIntroductions")
@@ -108,7 +125,7 @@ model Introduction {
   user         User      @relation("UserIntroductions", fields: [userId], references: [id], onDelete: Cascade)
   partnerId    String
   partner      User      @relation("PartnerIntroductions", fields: [partnerId], references: [id], onDelete: Cascade)
-  status       String    @default("PENDING") // PENDING, ACTIVE, COMPLETED, ENDED
+  status       String    @default("PENDING")
   unlockStage  Int       @default(0)
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
@@ -171,7 +188,7 @@ model DeviceToken {
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   token     String   @unique
-  platform  String   // ios, android, web
+  platform  String
   createdAt DateTime @default(now())
 
   @@map("device_tokens")
