@@ -2,63 +2,91 @@
 
 ## Feature
 
-Profile Infrastructure
+Basic Profile Management
 
 ---
 
 ## Goal
 
-Establish the foundational infrastructure for the Profile domain.
+Implement creation and editing of the core Profile entity.
 
-This task creates the module, service, controller, repository interactions, and basic profile lifecycle without implementing profile editing or onboarding fields.
+This milestone allows authenticated users to create and update their personal profile information.
 
-The objective is to prepare the Profile domain for future feature slices.
+Only implement fields that belong directly to the Profile model.
+
+Do not implement related entities.
 
 ---
 
 ## Scope
 
-Implement ONLY the infrastructure.
+### Profile Creation
 
-### Module
+Implement:
 
-Create:
+POST /api/v1/profile
 
-- ProfileModule
+Creates a profile for the authenticated user.
 
-### Service
+A user may own exactly one profile.
 
-Create:
+Return:
 
-- ProfileService
-
-Responsibilities:
-
-- Get current user's profile
-- Create empty profile when required
-- Lookup profile by userId
-
-Do not implement profile editing.
+- 201 Created
+- 409 Conflict if profile already exists
 
 ---
 
-### Controller
+### Profile Update
 
-Create:
+Implement:
 
-GET /api/v1/profile/me
+PATCH /api/v1/profile/me
 
-Returns the authenticated user's profile.
+Allow updating only Profile fields.
 
-If none exists, return 404.
+Examples:
 
-Do not auto-create.
+- firstName
+- pronouns
+- bio
+- occupation
+- company
+- education
+- heightCm
+- religion
+- drinking
+- smoking
+- workout
+- relationship intent
+
+Do not allow updating:
+
+- userId
+- completionScore
+- isComplete
+
+---
+
+### Validation
+
+Use DTOs.
+
+Use ValidationPipe.
+
+Validate:
+
+- lengths
+- enums
+- optional fields
+
+Follow the architecture document.
 
 ---
 
 ### Authentication
 
-Protect every endpoint with:
+Protect every endpoint using:
 
 - JwtAuthGuard
 - @CurrentUser()
@@ -67,7 +95,7 @@ Protect every endpoint with:
 
 ### Swagger
 
-Document endpoints.
+Document every endpoint.
 
 ---
 
@@ -75,8 +103,16 @@ Document endpoints.
 
 Write:
 
-- Unit tests
+- unit tests
 - E2E tests
+
+Cover:
+
+- profile creation
+- duplicate profile
+- update
+- invalid payload
+- unauthorized request
 
 ---
 
@@ -84,17 +120,14 @@ Write:
 
 Do NOT implement:
 
-- PATCH profile
-- Photos
-- Interests
-- Prompts
-- Preferences
-- Completion engine
-- File uploads
-- Voice intro
-- Verification
-- Discovery
-- Matching
+- photos
+- interests
+- prompts
+- preferences
+- uploads
+- completion engine
+- onboarding transitions
+- profile verification
 
 ---
 
@@ -102,27 +135,22 @@ Do NOT implement:
 
 The task is complete only when:
 
-- Profile module exists
-- Profile service exists
-- Profile controller exists
-- GET /profile/me works
-- 404 returned if profile missing
-- Authentication required
-- Swagger updated
-- Tests pass
-- Existing auth still passes
-- Existing onboarding still passes
-- Build passes
-- Lint passes
+- POST /profile works
+- PATCH /profile/me works
+- validation works
+- duplicate profiles rejected
+- tests pass
+- build passes
+- lint passes
+- authentication continues working
+- onboarding continues working
 
 ---
 
 ## Deliverables
 
-- ProfileModule
-- ProfileService
-- ProfileController
+- DTOs
+- Controller updates
+- Service updates
 - Tests
 - Updated project/PROGRESS.md
-
-Do not implement functionality outside this scope.

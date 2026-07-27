@@ -10,14 +10,14 @@ describe("ProfileController (e2e)", () => {
   let prisma: PrismaService;
   let redis: RedisService;
 
-  const testEmailWithProfile = `e2e_profile_exists_${Date.now()}@example.com`;
-  const testEmailNoProfile = `e2e_profile_missing_${Date.now()}@example.com`;
+  const testEmail1 = `e2e_profile_create_${Date.now()}@example.com`;
+  const testEmail2 = `e2e_profile_patch_${Date.now()}@example.com`;
   const testPassword = "SecurePassword123!";
 
-  let userIdWithProfile: string;
-  let userIdNoProfile: string;
-  let tokenWithProfile: string;
-  let tokenNoProfile: string;
+  let userId1: string;
+  let userId2: string;
+  let token1: string;
+  let token2: string;
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -39,58 +39,47 @@ describe("ProfileController (e2e)", () => {
     prisma = app.get<PrismaService>(PrismaService);
     redis = app.get<RedisService>(RedisService);
 
-    // 1. Setup user WITH profile: register -> verify -> create profile -> login
+    // Setup user 1: register -> verify -> login
     const regRes1 = await request(app.getHttpServer())
       .post("/api/v1/auth/register")
-      .send({ email: testEmailWithProfile, password: testPassword });
-    userIdWithProfile = regRes1.body.data.userId;
+      .send({ email: testEmail1, password: testPassword });
+    userId1 = regRes1.body.data.userId;
 
-    const code1 = (await redis.get(`auth:code:${userIdWithProfile}`))!;
+    const code1 = (await redis.get(`auth:code:${userId1}`))!;
     await request(app.getHttpServer())
       .post("/api/v1/auth/verify-code")
-      .send({ userId: userIdWithProfile, code: code1 });
+      .send({ userId: userId1, code: code1 });
 
     const loginRes1 = await request(app.getHttpServer())
       .post("/api/v1/auth/login")
-      .send({ email: testEmailWithProfile, password: testPassword });
-    tokenWithProfile = loginRes1.body.data.tokens.accessToken;
+      .send({ email: testEmail1, password: testPassword });
+    token1 = loginRes1.body.data.tokens.accessToken;
 
-    // Create a Profile record in DB for userIdWithProfile
-    await prisma.profile.create({
-      data: {
-        userId: userIdWithProfile,
-        firstName: "Jordan",
-        gender: "NON_BINARY",
-        locationName: "New York, NY",
-        intent: "LONG_TERM",
-      },
-    });
-
-    // 2. Setup user WITHOUT profile: register -> verify -> login
+    // Setup user 2: register -> verify -> login
     const regRes2 = await request(app.getHttpServer())
       .post("/api/v1/auth/register")
-      .send({ email: testEmailNoProfile, password: testPassword });
-    userIdNoProfile = regRes2.body.data.userId;
+      .send({ email: testEmail2, password: testPassword });
+    userId2 = regRes2.body.data.userId;
 
-    const code2 = (await redis.get(`auth:code:${userIdNoProfile}`))!;
+    const code2 = (await redis.get(`auth:code:${userId2}`))!;
     await request(app.getHttpServer())
       .post("/api/v1/auth/verify-code")
-      .send({ userId: userIdNoProfile, code: code2 });
+      .send({ userId: userId2, code: code2 });
 
     const loginRes2 = await request(app.getHttpServer())
       .post("/api/v1/auth/login")
-      .send({ email: testEmailNoProfile, password: testPassword });
-    tokenNoProfile = loginRes2.body.data.tokens.accessToken;
+      .send({ email: testEmail2, password: testPassword });
+    token2 = loginRes2.body.data.tokens.accessToken;
   });
 
   afterAll(async () => {
-    if (userIdWithProfile) {
-      await redis.del(`auth:code:${userIdWithProfile}`);
-      await prisma.user.deleteMany({ where: { email: testEmailWithProfile } });
+    if (userId1) {
+      await redis.del(`auth:code:${userId1}`);
+      await prisma.user.deleteMany({ where: { email: testEmail1 } });
     }
-    if (userIdNoProfile) {
-      await redis.del(`auth:code:${userIdNoProfile}`);
-      await prisma.user.deleteMany({ where: { email: testEmailNoProfile } });
+    if (userId2) {
+      await redis.del(`auth:code:${userId2}`);
+      await prisma.user.deleteMany({ where: { email: testEmail2 } });
     }
     await app.close();
   });
@@ -103,28 +92,100 @@ describe("ProfileController (e2e)", () => {
     it("should return 404 Not Found when profile does not exist", async () => {
       const res = await request(app.getHttpServer())
         .get("/api/v1/profile/me")
-        .set("Authorization", `Bearer ${tokenNoProfile}`)
+        .set("Authorization", `Bearer ${token1}`)
         .expect(404);
 
       expect(res.body).toHaveProperty("statusCode", 404);
       expect(res.body.message).toContain("Profile not found");
     });
+  });
 
-    it("should return 200 OK and profile data when profile exists", async () => {
+  describe("POST /api/v1/profile", () => {
+    it("should return 401 Unauthorized for unauthenticated request", async () => {
+      await request(app.getHttpServer())
+        .post("/api/v1/profile")
+        .send({ firstName: "Alex" })
+        .expect(401);
+    });
+
+    it("should return 400 Bad Request for invalid payload (short firstName)", async () => {
+      await request(app.getHttpServer())
+        .post("/api/v1/profile")
+        .set("Authorization", `Bearer ${token1}`)
+        .send({ firstName: "A" })
+        .expect(400);
+    });
+
+    it("should create profile successfully (201 Created)", async () => {
       const res = await request(app.getHttpServer())
-        .get("/api/v1/profile/me")
-        .set("Authorization", `Bearer ${tokenWithProfile}`)
+        .post("/api/v1/profile")
+        .set("Authorization", `Bearer ${token1}`)
+        .send({
+          firstName: "Alex",
+          gender: "NON_BINARY",
+          locationName: "San Francisco, CA",
+          bio: "Software developer and outdoor enthusiast.",
+          intent: "LONG_TERM",
+        })
+        .expect(201);
+
+      expect(res.body).toHaveProperty("statusCode", 201);
+      expect(res.body.data).toHaveProperty("userId", userId1);
+      expect(res.body.data).toHaveProperty("firstName", "Alex");
+      expect(res.body.data).toHaveProperty("gender", "NON_BINARY");
+    });
+
+    it("should return 409 Conflict when creating duplicate profile", async () => {
+      await request(app.getHttpServer())
+        .post("/api/v1/profile")
+        .set("Authorization", `Bearer ${token1}`)
+        .send({ firstName: "Alex" })
+        .expect(409);
+    });
+  });
+
+  describe("PATCH /api/v1/profile/me", () => {
+    it("should return 401 Unauthorized for unauthenticated request", async () => {
+      await request(app.getHttpServer())
+        .patch("/api/v1/profile/me")
+        .send({ bio: "New bio" })
+        .expect(401);
+    });
+
+    it("should return 404 Not Found when updating non-existent profile", async () => {
+      await request(app.getHttpServer())
+        .patch("/api/v1/profile/me")
+        .set("Authorization", `Bearer ${token2}`)
+        .send({ bio: "New bio" })
+        .expect(404);
+    });
+
+    it("should return 400 Bad Request for invalid height payload", async () => {
+      await request(app.getHttpServer())
+        .patch("/api/v1/profile/me")
+        .set("Authorization", `Bearer ${token1}`)
+        .send({ heightCm: 500 }) // exceeds max 230
+        .expect(400);
+    });
+
+    it("should update existing profile successfully (200 OK)", async () => {
+      const res = await request(app.getHttpServer())
+        .patch("/api/v1/profile/me")
+        .set("Authorization", `Bearer ${token1}`)
+        .send({
+          occupation: "Senior Staff Engineer",
+          heightCm: 180,
+          drinking: "SOMETIMES",
+        })
         .expect(200);
 
       expect(res.body).toHaveProperty("statusCode", 200);
-      expect(res.body.data).toHaveProperty("userId", userIdWithProfile);
-      expect(res.body.data).toHaveProperty("firstName", "Jordan");
-      expect(res.body.data).toHaveProperty("gender", "NON_BINARY");
-      expect(res.body.data).toHaveProperty("locationName", "New York, NY");
-      expect(res.body.data).toHaveProperty("intent", "LONG_TERM");
-      expect(res.body.data).toHaveProperty("photos");
-      expect(res.body.data).toHaveProperty("userInterests");
-      expect(res.body.data).toHaveProperty("prompts");
+      expect(res.body.data).toHaveProperty(
+        "occupation",
+        "Senior Staff Engineer",
+      );
+      expect(res.body.data).toHaveProperty("heightCm", 180);
+      expect(res.body.data).toHaveProperty("drinking", "SOMETIMES");
     });
   });
 });

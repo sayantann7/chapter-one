@@ -18,6 +18,10 @@ describe("ProfileController", () => {
 
   const mockProfileService = {
     getProfileForCurrentUser: jest.fn().mockResolvedValue(mockProfile),
+    createProfile: jest.fn().mockResolvedValue(mockProfile),
+    updateMyProfile: jest
+      .fn()
+      .mockResolvedValue({ ...mockProfile, firstName: "Alex Updated" }),
   };
 
   beforeEach(async () => {
@@ -44,6 +48,36 @@ describe("ProfileController", () => {
       statusCode: 200,
       message: "Profile retrieved successfully",
       data: mockProfile,
+    });
+  });
+
+  it("should call profileService.createProfile and return formatted response", async () => {
+    const dto = { firstName: "Alex" };
+    const res = await controller.createProfile("user-uuid-123", dto);
+
+    expect(profileService.createProfile).toHaveBeenCalledWith(
+      "user-uuid-123",
+      dto,
+    );
+    expect(res).toEqual({
+      statusCode: 201,
+      message: "Profile created successfully",
+      data: mockProfile,
+    });
+  });
+
+  it("should call profileService.updateMyProfile and return formatted response", async () => {
+    const dto = { firstName: "Alex Updated" };
+    const res = await controller.updateMyProfile("user-uuid-123", dto);
+
+    expect(profileService.updateMyProfile).toHaveBeenCalledWith(
+      "user-uuid-123",
+      dto,
+    );
+    expect(res).toEqual({
+      statusCode: 200,
+      message: "Profile updated successfully",
+      data: { ...mockProfile, firstName: "Alex Updated" },
     });
   });
 });
