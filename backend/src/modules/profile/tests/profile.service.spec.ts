@@ -1,4 +1,8 @@
-import { ConflictException, NotFoundException } from "@nestjs/common";
+import {
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
+} from "@nestjs/common";
 import { Test, TestingModule } from "@nestjs/testing";
 import { PrismaService } from "../../../prisma/prisma.service";
 import { ProfileService } from "../services/profile.service";
@@ -8,9 +12,18 @@ describe("ProfileService", () => {
   let prisma: PrismaService;
 
   const mockPrismaService = {
+    $transaction: jest.fn((cb) => cb(mockPrismaService)),
     profile: {
       findUnique: jest.fn(),
       create: jest.fn(),
+      update: jest.fn(),
+    },
+    profilePhoto: {
+      count: jest.fn(),
+      create: jest.fn(),
+      findUnique: jest.fn(),
+      findMany: jest.fn(),
+      delete: jest.fn(),
       update: jest.fn(),
     },
   };
@@ -144,6 +157,138 @@ describe("ProfileService", () => {
       await expect(
         service.updateMyProfile("unknown-id", { firstName: "Alex" }),
       ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe("addPhoto", () => {
+    it("should add photo with auto display order when under limit", async () => {
+      mockPrismaService.profile.findUnique.mockResolvedValue({
+        id: "profile-uuid-123",
+        userId: "user-uuid-123",
+      });
+      mockPrismaService.profilePhoto.count.mockResolvedValue(2);
+      const createdPhoto = {
+        id: "photo-uuid-3",
+        profileId: "profile-uuid-123",
+        url: "https://img.com/3.jpg",
+        displayOrder: 2,
+      };
+      mockPrismaService.profilePhoto.create.mockResolvedValue(createdPhoto);
+
+      const dto = { url: "https://img.com/3.jpg" };
+      const result = await service.addPhoto("user-uuid-123", dto);
+
+      expect(prisma.profilePhoto.create).toHaveBeenCalledWith({
+        data: {
+          profileId: "profile-uuid-123",
+          url: "https://img.com/3.jpg",
+          thumbnailUrl: undefined,
+          blurHash: undefined,
+          displayOrder: 2,
+        },
+      });
+      expect(result).toEqual(createdPhoto);
+    });
+
+    it("should throw BadRequestException if max 6 photos limit is reached", async () => {
+      mockPrismaService.profile.findUnique.mockResolvedValue({
+        id: "profile-uuid-123",
+        userId: "user-uuid-123",
+      });
+      mockPrismaService.profilePhoto.count.mockResolvedValue(6);
+
+      const dto = { url: "https://img.com/7.jpg" };
+      await expect(service.addPhoto("user-uuid-123", dto)).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+  });
+
+  describe("deletePhoto", () => {
+    it("should delete photo and reorder remaining photos", async () => {
+      mockPrismaService.profile.findUnique.mockResolvedValue({
+        id: "profile-uuid-123",
+        userId: "user-uuid-123",
+      });
+      mockPrismaService.profilePhoto.findUnique.mockResolvedValue({
+        id: "photo-uuid-1",
+        profileId: "profile-uuid-123",
+      });
+      mockPrismaService.profilePhoto.delete.mockResolvedValue({
+        id: "photo-uuid-1",
+      });
+      mockPrismaService.profilePhoto.findMany.mockResolvedValue([
+        { id: "photo-uuid-2", displayOrder: 1 },
+      ]);
+      mockPrismaService.profilePhoto.update.mockResolvedValue({
+        id: "photo-uuid-2",
+        displayOrder: 0,
+      });
+
+      const res = await service.deletePhoto("user-uuid-123", "photo-uuid-1");
+
+      expect(prisma.profilePhoto.delete).toHaveBeenCalledWith({
+        where: { id: "photo-uuid-1" },
+      });
+      expect(prisma.profilePhoto.update).toHaveBeenCalled();
+      expect(res).toEqual({ message: "Photo deleted successfully" });
+    });
+
+    it("should throw NotFoundException if photo not owned by user", async () => {
+      mockPrismaService.profile.findUnique.mockResolvedValue({
+        id: "profile-uuid-123",
+        userId: "user-uuid-123",
+      });
+      mockPrismaService.profilePhoto.findUnique.mockResolvedValue({
+        id: "photo-uuid-1",
+        profileId: "other-profile-id",
+      });
+
+      await expect(
+        service.deletePhoto("user-uuid-123", "photo-uuid-1"),
+      ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe("reorderPhotos", () => {
+    it("should update displayOrder for all photos in array", async () => {
+      mockPrismaService.profile.findUnique.mockResolvedValue({
+        id: "profile-uuid-123",
+        userId: "user-uuid-123",
+      });
+      mockPrismaService.profilePhoto.findMany
+        .mockResolvedValueOnce([
+          { id: "photo-1", displayOrder: 0 },
+          { id: "photo-2", displayOrder: 1 },
+        ])
+        .mockResolvedValueOnce([
+          { id: "photo-2", displayOrder: 0 },
+          { id: "photo-1", displayOrder: 1 },
+        ]);
+
+      const dto = { photoIds: ["photo-2", "photo-1"] };
+      const res = await service.reorderPhotos("user-uuid-123", dto);
+
+      expect(prisma.profilePhoto.update).toHaveBeenCalled();
+      expect(res).toEqual([
+        { id: "photo-2", displayOrder: 0 },
+        { id: "photo-1", displayOrder: 1 },
+      ]);
+    });
+
+    it("should throw BadRequestException if photo IDs do not match profile photos", async () => {
+      mockPrismaService.profile.findUnique.mockResolvedValue({
+        id: "profile-uuid-123",
+        userId: "user-uuid-123",
+      });
+      mockPrismaService.profilePhoto.findMany.mockResolvedValue([
+        { id: "photo-1", displayOrder: 0 },
+      ]);
+
+      const dto = { photoIds: ["photo-unowned"] };
+      await expect(service.reorderPhotos("user-uuid-123", dto)).rejects.toThrow(
+        BadRequestException,
+      );
     });
   });
 });

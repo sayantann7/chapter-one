@@ -16,12 +16,24 @@ describe("ProfileController", () => {
     prompts: [],
   };
 
+  const mockPhoto = {
+    id: "photo-uuid-1",
+    profileId: "profile-uuid-123",
+    url: "https://images.com/photo1.jpg",
+    displayOrder: 0,
+  };
+
   const mockProfileService = {
     getProfileForCurrentUser: jest.fn().mockResolvedValue(mockProfile),
     createProfile: jest.fn().mockResolvedValue(mockProfile),
     updateMyProfile: jest
       .fn()
       .mockResolvedValue({ ...mockProfile, firstName: "Alex Updated" }),
+    addPhoto: jest.fn().mockResolvedValue(mockPhoto),
+    deletePhoto: jest
+      .fn()
+      .mockResolvedValue({ message: "Photo deleted successfully" }),
+    reorderPhotos: jest.fn().mockResolvedValue([mockPhoto]),
   };
 
   beforeEach(async () => {
@@ -38,7 +50,7 @@ describe("ProfileController", () => {
     expect(controller).toBeDefined();
   });
 
-  it("should call profileService.getProfileForCurrentUser and return formatted response", async () => {
+  it("should call profileService.getMyProfile and return formatted response", async () => {
     const res = await controller.getMyProfile("user-uuid-123");
 
     expect(profileService.getProfileForCurrentUser).toHaveBeenCalledWith(
@@ -78,6 +90,46 @@ describe("ProfileController", () => {
       statusCode: 200,
       message: "Profile updated successfully",
       data: { ...mockProfile, firstName: "Alex Updated" },
+    });
+  });
+
+  it("should call profileService.addPhoto and return formatted response", async () => {
+    const dto = { url: "https://images.com/photo1.jpg" };
+    const res = await controller.addPhoto("user-uuid-123", dto);
+
+    expect(profileService.addPhoto).toHaveBeenCalledWith("user-uuid-123", dto);
+    expect(res).toEqual({
+      statusCode: 201,
+      message: "Photo added successfully",
+      data: mockPhoto,
+    });
+  });
+
+  it("should call profileService.deletePhoto and return formatted response", async () => {
+    const res = await controller.deletePhoto("user-uuid-123", "photo-uuid-1");
+
+    expect(profileService.deletePhoto).toHaveBeenCalledWith(
+      "user-uuid-123",
+      "photo-uuid-1",
+    );
+    expect(res).toEqual({
+      statusCode: 200,
+      message: "Photo deleted successfully",
+    });
+  });
+
+  it("should call profileService.reorderPhotos and return formatted response", async () => {
+    const dto = { photoIds: ["photo-uuid-1"] };
+    const res = await controller.reorderPhotos("user-uuid-123", dto);
+
+    expect(profileService.reorderPhotos).toHaveBeenCalledWith(
+      "user-uuid-123",
+      dto,
+    );
+    expect(res).toEqual({
+      statusCode: 200,
+      message: "Photos reordered successfully",
+      data: [mockPhoto],
     });
   });
 });

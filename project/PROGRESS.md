@@ -2,7 +2,7 @@
 
 ## Current Status
 
-✅ Phase 1 — Basic Profile Management Implemented & Verified.
+✅ Phase 1 — Profile Photos Management Implemented & Verified.
 
 ---
 
@@ -29,13 +29,15 @@
 - Designed **Profile Domain Architecture** in `docs/profile-domain-design.md`
 - Implemented **Profile Database Schema** in NestJS (`backend/prisma/schema.prisma`)
 - Implemented **Profile Infrastructure** in NestJS
-- Implemented **Basic Profile Management** in NestJS:
-  - Created `CreateProfileDto` and `UpdateProfileDto` using `class-validator` validating field lengths, enums (`Gender`, `RelationshipIntent`, `LifestyleChoice`), coordinates, height ranges, and string limits
-  - Implemented `POST /api/v1/profile` endpoint protected by `JwtAuthGuard` and `@CurrentUser()` for creating a profile (returns `201 Created` or `409 Conflict` if duplicate profile exists)
-  - Implemented `PATCH /api/v1/profile/me` endpoint protected by `JwtAuthGuard` and `@CurrentUser()` for partial profile updates (returns `200 OK` or `404 Not Found` if profile is missing, stripping out system/security fields)
-  - Added Swagger documentation annotations across endpoints with Bearer auth support (`@ApiBearerAuth('Bearer')`)
-  - Updated unit test suites (`profile.service.spec.ts`, `profile.controller.spec.ts` — 13 suites, 67 unit tests total across all modules)
-  - Updated E2E integration test suite (`test/profile.e2e-spec.ts` — 24 scenarios total across 3 suites) verifying profile creation, 409 duplicate rejection, profile updates, 400 invalid payload validation, 404 missing profile handling, and 401 unauthenticated access
+- Implemented **Basic Profile Management** in NestJS
+- Implemented **Profile Photos Management** in NestJS:
+  - Created `CreateProfilePhotoDto` (validating photo URL, thumbnailUrl, blurHash) and `ReorderProfilePhotosDto` (validating photo ID array)
+  - Implemented `POST /api/v1/profile/photos` endpoint protected by `JwtAuthGuard` and `@CurrentUser()` for adding a photo (auto displayOrder, max 6 photo limit enforcement returning `400 Bad Request`)
+  - Implemented `DELETE /api/v1/profile/photos/:photoId` endpoint protected by `JwtAuthGuard` and `@CurrentUser()` for deleting a photo (validating ownership, reordering remaining photos `0..N-1` via database transaction)
+  - Implemented `PUT /api/v1/profile/photos/reorder` endpoint protected by `JwtAuthGuard` and `@CurrentUser()` for reordering gallery photos (validating ownership and ID count)
+  - Added Swagger documentation annotations across photo endpoints with Bearer auth support (`@ApiBearerAuth('Bearer')`)
+  - Updated unit test suites (`profile.service.spec.ts`, `profile.controller.spec.ts` — 13 suites, 76 unit tests total across all modules)
+  - Updated E2E integration test suite (`test/profile.e2e-spec.ts` — 25 scenarios total across 3 suites) verifying photo addition, max 6 photo limit enforcement, photo deletion & reordering, photo reorder endpoint, ownership validation, and 401 unauthenticated access
 
 ---
 
@@ -59,7 +61,7 @@ None.
 
 ## Notes
 
-Basic Profile Management is fully implemented and verified. Unit tests (13 suites, 67 tests) and E2E integration tests (24 test scenarios across 3 suites) pass cleanly.
+Profile Photos Management is fully implemented and verified. Unit tests (13 suites, 76 tests) and E2E integration tests (25 test scenarios across 3 suites) pass cleanly.
 
 All implementation follows:
 

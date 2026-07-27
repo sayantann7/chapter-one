@@ -2,91 +2,75 @@
 
 ## Feature
 
-Basic Profile Management
+Profile Photos
 
 ---
 
 ## Goal
 
-Implement creation and editing of the core Profile entity.
+Implement profile photo management.
 
-This milestone allows authenticated users to create and update their personal profile information.
+This feature allows authenticated users to manage their profile photo gallery.
 
-Only implement fields that belong directly to the Profile model.
+File upload implementation is NOT part of this task.
 
-Do not implement related entities.
+Assume image URLs already exist.
 
 ---
 
 ## Scope
 
-### Profile Creation
+### Create Photo
 
-Implement:
+POST /api/v1/profile/photos
 
-POST /api/v1/profile
+Body:
 
-Creates a profile for the authenticated user.
+- url
+- thumbnailUrl (optional)
+- blurHash (optional)
 
-A user may own exactly one profile.
+Assign displayOrder automatically.
 
-Return:
-
-- 201 Created
-- 409 Conflict if profile already exists
+Reject more than six photos.
 
 ---
 
-### Profile Update
+### Delete Photo
 
-Implement:
+DELETE /api/v1/profile/photos/:photoId
 
-PATCH /api/v1/profile/me
+Delete only photos owned by the authenticated user.
 
-Allow updating only Profile fields.
+Reorder remaining photos.
 
-Examples:
+---
 
-- firstName
-- pronouns
-- bio
-- occupation
-- company
-- education
-- heightCm
-- religion
-- drinking
-- smoking
-- workout
-- relationship intent
+### Reorder Photos
 
-Do not allow updating:
+PUT /api/v1/profile/photos/reorder
 
-- userId
-- completionScore
-- isComplete
+Accept ordered list of photo IDs.
+
+Validate ownership.
+
+Update displayOrder.
 
 ---
 
 ### Validation
 
-Use DTOs.
+Maximum:
 
-Use ValidationPipe.
+- 6 photos
 
-Validate:
-
-- lengths
-- enums
-- optional fields
-
-Follow the architecture document.
+Minimum validation will be added later by the completion engine.
 
 ---
 
 ### Authentication
 
-Protect every endpoint using:
+Use:
 
 - JwtAuthGuard
 - @CurrentUser()
@@ -95,24 +79,24 @@ Protect every endpoint using:
 
 ### Swagger
 
-Document every endpoint.
+Document all endpoints.
 
 ---
 
 ### Tests
 
-Write:
+Unit tests.
 
-- unit tests
-- E2E tests
+E2E tests.
 
 Cover:
 
-- profile creation
-- duplicate profile
-- update
-- invalid payload
-- unauthorized request
+- upload metadata
+- delete
+- reorder
+- unauthorized access
+- ownership validation
+- max photo limit
 
 ---
 
@@ -120,30 +104,27 @@ Cover:
 
 Do NOT implement:
 
-- photos
-- interests
-- prompts
-- preferences
-- uploads
+- multipart uploads
+- S3
+- Cloudflare R2
+- image resizing
+- moderation
+- AI
 - completion engine
-- onboarding transitions
-- profile verification
+- blur generation
 
 ---
 
 ## Definition of Done
 
-The task is complete only when:
-
-- POST /profile works
-- PATCH /profile/me works
-- validation works
-- duplicate profiles rejected
+- create photo works
+- delete works
+- reorder works
+- max 6 enforced
+- ownership enforced
 - tests pass
 - build passes
 - lint passes
-- authentication continues working
-- onboarding continues working
 
 ---
 
