@@ -2,7 +2,7 @@
 
 ## Current Status
 
-✅ Phase 1 — Account Verification Feature Implemented & Verified.
+✅ Phase 1 — User Login Feature Implemented & Verified.
 
 ---
 
@@ -19,13 +19,14 @@
 - Workspace builds & linting verification passed across all packages
 - Designed complete authentication architecture in `docs/authentication-design.md`
 - Implemented **User Registration** feature (`POST /api/v1/auth/register`) in NestJS
-- Implemented **Account Verification** feature (`POST /api/v1/auth/verify-code`) in NestJS:
-  - Created `VerifyCodeDto` with `class-validator` rules (`userId` UUID & `code` 6-digit numeric string)
-  - Implemented Redis 6-digit code validation, TTL expiration check, and automatic deletion upon verification (`VerificationService.deleteVerificationCode`) to prevent reuse
-  - Implemented `AuthService.verifyCode` handling non-existent user checks (`NotFoundException` 404), already verified checks (`BadRequestException` 400), and status transitions from `UNVERIFIED` to `PENDING_ONBOARDING` (`isVerified: true`)
+- Implemented **Account Verification** feature (`POST /api/v1/auth/verify-code`) in NestJS
+- Implemented **User Login** feature (`POST /api/v1/auth/login`) in NestJS:
+  - Installed and configured `@nestjs/jwt` with `JwtModule.registerAsync` using `JWT_SECRET` and `JWT_EXPIRES_IN` configuration
+  - Created `LoginDto` with `class-validator` rules and `@Transform` lowercasing
+  - Implemented `AuthService.login` handling Argon2id password verification, status eligibility validation (rejecting `UNVERIFIED`, `SUSPENDED`, and `DEACTIVATED` accounts with `401 Unauthorized`), updating `lastLoginAt`, and returning user context with signed JWT access token
   - Added Swagger documentation annotations to `AuthController`
-  - Created unit tests (`auth.service.spec.ts`, `auth.controller.spec.ts`, `verification.service.spec.ts`)
-  - Created E2E integration test suite (`test/auth.e2e-spec.ts`)
+  - Created unit tests for `login` in `auth.service.spec.ts` and `auth.controller.spec.ts`
+  - Created E2E integration test suite for `login` in `test/auth.e2e-spec.ts`
 
 ---
 
@@ -37,7 +38,7 @@ None.
 
 ## Next Task
 
-Phase 1 — Login Flow (JWT & Refresh Token Rotation)
+Phase 1 — Refresh Token & Session Management
 
 ---
 
@@ -49,7 +50,7 @@ None.
 
 ## Notes
 
-The Account Verification feature is fully implemented and verified. Unit tests (4 suites, 19 tests) and E2E integration tests (5 test scenarios) pass cleanly.
+The User Login feature is fully implemented and verified. Unit tests (4 suites, 25 tests) and E2E integration tests (6 test scenarios) pass cleanly.
 
 All implementation follows:
 

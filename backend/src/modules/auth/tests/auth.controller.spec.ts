@@ -16,6 +16,17 @@ describe("AuthController", () => {
       userId: "user-uuid-123",
       status: "PENDING_ONBOARDING",
     }),
+    login: jest.fn().mockResolvedValue({
+      user: {
+        id: "user-uuid-123",
+        email: "alex@example.com",
+        status: "PENDING_ONBOARDING",
+        role: "USER",
+      },
+      accessToken: "jwt_token_123",
+      tokenType: "Bearer",
+      expiresIn: 900,
+    }),
   };
 
   beforeEach(async () => {
@@ -67,6 +78,32 @@ describe("AuthController", () => {
       data: {
         userId: "user-uuid-123",
         status: "PENDING_ONBOARDING",
+      },
+    });
+  });
+
+  it("should call authService.login and return formatted response", async () => {
+    const dto = {
+      email: "alex@example.com",
+      password: "SecurePassword123!",
+    };
+
+    const res = await controller.login(dto);
+
+    expect(authService.login).toHaveBeenCalledWith(dto);
+    expect(res).toEqual({
+      statusCode: 200,
+      message: "Login successful",
+      data: {
+        user: {
+          id: "user-uuid-123",
+          email: "alex@example.com",
+          status: "PENDING_ONBOARDING",
+          role: "USER",
+        },
+        accessToken: "jwt_token_123",
+        tokenType: "Bearer",
+        expiresIn: 900,
       },
     });
   });

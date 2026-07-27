@@ -2,31 +2,35 @@
 
 ## Feature
 
-Account Verification
+User Login
 
 ---
 
 ## Goal
 
-Implement the account verification flow for newly registered users.
+Implement secure user authentication for verified users.
 
-This task completes the user registration journey by allowing users to verify the code generated during registration.
+This task allows users to log in using their email and password and receive an access token.
 
 ---
 
 ## Scope
 
-Implement ONLY the account verification feature.
+Implement ONLY the login functionality.
 
 This includes:
 
-- Verify 6-digit verification code
-- Validate expiration
-- Validate incorrect codes
-- Prevent code reuse
-- Update user status from UNVERIFIED to PENDING_ONBOARDING
-- Remove verification code from Redis after successful verification
-- Return success response
+- Login DTO
+- Email lookup
+- Password verification using Argon2id
+- Reject invalid credentials
+- Reject unverified users
+- Reject suspended/deactivated users
+- JWT access token generation
+- Standardized login response
+- Swagger documentation
+- Unit tests
+- Integration tests
 
 ---
 
@@ -34,15 +38,14 @@ This includes:
 
 Do NOT implement:
 
-- Login
-- JWT generation
 - Refresh Tokens
+- Refresh Token Rotation
 - Logout
 - Password Reset
 - OAuth
+- Session Management
+- /auth/me
 - Profile Creation
-- Matching
-- Government Verification
 
 ---
 
@@ -50,13 +53,13 @@ Do NOT implement:
 
 The task is complete only when:
 
-- Verification endpoint works correctly
-- Invalid codes are rejected
-- Expired codes are rejected
-- Used codes cannot be reused
-- User status updates correctly
-- Redis cleanup works
-- Swagger documentation updated
+- Verified users can log in
+- Password verification works correctly
+- Invalid credentials return 401 Unauthorized
+- Unverified users cannot log in
+- Suspended users cannot log in
+- JWT access token is generated correctly
+- Swagger documentation is updated
 - Unit tests pass
 - Integration tests pass
 - Build passes
@@ -67,8 +70,9 @@ The task is complete only when:
 
 ## Deliverables
 
-- Verification endpoint
-- DTOs
+- Login endpoint
+- JWT configuration
+- Login DTO
 - Services
 - Tests
 - Updated project/PROGRESS.md

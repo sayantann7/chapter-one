@@ -9,7 +9,8 @@ describe("AuthController (e2e)", () => {
   let app: INestApplication;
   let prisma: PrismaService;
   let redis: RedisService;
-  const testEmail = `e2e_verify_${Date.now()}@example.com`;
+  const testEmail = `e2e_login_${Date.now()}@example.com`;
+  const testPassword = "SecurePassword123!";
   let testUserId: string;
   let verificationCode: string;
 
@@ -47,7 +48,7 @@ describe("AuthController (e2e)", () => {
       .post("/api/v1/auth/register")
       .send({
         email: testEmail,
-        password: "SecurePassword123!",
+        password: testPassword,
       })
       .expect(201);
 
@@ -60,24 +61,14 @@ describe("AuthController (e2e)", () => {
     verificationCode = storedCode!;
   });
 
-  it("/api/v1/auth/verify-code (POST) - invalid code (400)", async () => {
+  it("/api/v1/auth/login (POST) - unverified account rejection (401)", async () => {
     await request(app.getHttpServer())
-      .post("/api/v1/auth/verify-code")
+      .post("/api/v1/auth/login")
       .send({
-        userId: testUserId,
-        code: "000000",
+        email: testEmail,
+        password: testPassword,
       })
-      .expect(400);
-  });
-
-  it("/api/v1/auth/verify-code (POST) - non-existent user (404)", async () => {
-    await request(app.getHttpServer())
-      .post("/api/v1/auth/verify-code")
-      .send({
-        userId: "a0000000-0000-4000-a000-000000000000",
-        code: "123456",
-      })
-      .expect(404);
+      .expect(401);
   });
 
   it("/api/v1/auth/verify-code (POST) - success", async () => {
@@ -89,29 +80,46 @@ describe("AuthController (e2e)", () => {
       })
       .expect(200);
 
-    expect(res.body).toHaveProperty("statusCode", 200);
-    expect(res.body.data).toEqual({
-      userId: testUserId,
-      status: "PENDING_ONBOARDING",
-    });
-
-    // Check database state update
-    const dbUser = await prisma.user.findUnique({ where: { id: testUserId } });
-    expect(dbUser?.status).toBe("PENDING_ONBOARDING");
-    expect(dbUser?.isVerified).toBe(true);
-
-    // Check code deleted from Redis
-    const redisCode = await redis.get(`auth:code:${testUserId}`);
-    expect(redisCode).toBeNull();
+    expect(res.body.data.status).toBe("PENDING_ONBOARDING");
   });
 
-  it("/api/v1/auth/verify-code (POST) - code reuse attempt (400)", async () => {
-    await request(app.getHttpServer())
-      .post("/api/v1/auth/verify-code")
+  it("/api/v1/auth/login (POST) - success after verification", async () => {
+    const res = await request(app.getHttpServer())
+      .post("/api/v1/auth/login")
       .send({
-        userId: testUserId,
-        code: verificationCode,
+        email: testEmail,
+        password: testPassword,
       })
-      .expect(400);
+      .expect(200);
+
+    expect(res.body).toHaveProperty("statusCode", 200);
+    expect(res.body.data).toHaveProperty("accessToken");
+    expect(res.body.data.tokenType).toBe("Bearer");
+    expect(res.body.data.user).toEqual({
+      id: testUserId,
+      email: testEmail,
+      status: "PENDING_ONBOARDING",
+      role: "USER",
+    });
+  });
+
+  it("/api/v1/auth/login (POST) - invalid password (401)", async () => {
+    await request(app.getHttpServer())
+      .post("/api/v1/auth/login")
+      .send({
+        email: testEmail,
+        password: "WrongPassword123!",
+      })
+      .expect(401);
+  });
+
+  it("/api/v1/auth/login (POST) - non-existent email (401)", async () => {
+    await request(app.getHttpServer())
+      .post("/api/v1/auth/login")
+      .send({
+        email: "nonexistent@example.com",
+        password: testPassword,
+      })
+      .expect(401);
   });
 });

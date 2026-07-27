@@ -2,7 +2,9 @@ import {
   BadRequestException,
   ConflictException,
   NotFoundException,
+  UnauthorizedException,
 } from "@nestjs/common";
+import { JwtService } from "@nestjs/jwt";
 import { Test, TestingModule } from "@nestjs/testing";
 import { PrismaService } from "../../../prisma/prisma.service";
 import { AuthService } from "../services/auth.service";
@@ -14,6 +16,7 @@ describe("AuthService", () => {
   let prisma: PrismaService;
   let passwordService: PasswordService;
   let verificationService: VerificationService;
+  let jwtService: JwtService;
 
   const mockPrismaService = {
     user: {
@@ -25,6 +28,7 @@ describe("AuthService", () => {
 
   const mockPasswordService = {
     hashPassword: jest.fn().mockResolvedValue("hashed_argon2id_password"),
+    verifyPassword: jest.fn().mockResolvedValue(true),
   };
 
   const mockVerificationService = {
@@ -34,6 +38,10 @@ describe("AuthService", () => {
     deleteVerificationCode: jest.fn().mockResolvedValue(undefined),
   };
 
+  const mockJwtService = {
+    signAsync: jest.fn().mockResolvedValue("mock_signed_jwt_access_token"),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -41,6 +49,7 @@ describe("AuthService", () => {
         { provide: PrismaService, useValue: mockPrismaService },
         { provide: PasswordService, useValue: mockPasswordService },
         { provide: VerificationService, useValue: mockVerificationService },
+        { provide: JwtService, useValue: mockJwtService },
       ],
     }).compile();
 
@@ -48,6 +57,7 @@ describe("AuthService", () => {
     prisma = module.get<PrismaService>(PrismaService);
     passwordService = module.get<PasswordService>(PasswordService);
     verificationService = module.get<VerificationService>(VerificationService);
+    jwtService = module.get<JwtService>(JwtService);
   });
 
   afterEach(() => {
@@ -197,6 +207,108 @@ describe("AuthService", () => {
       await expect(service.verifyCode(dto)).rejects.toThrow(
         BadRequestException,
       );
+    });
+  });
+
+  describe("login", () => {
+    it("should authenticate user and return signed JWT token", async () => {
+      mockPrismaService.user.findUnique.mockResolvedValue({
+        id: "user-uuid-123",
+        email: "alex@example.com",
+        passwordHash: "hashed_password",
+        status: "PENDING_ONBOARDING",
+        role: "USER",
+      });
+      mockPasswordService.verifyPassword.mockResolvedValue(true);
+      mockPrismaService.user.update.mockResolvedValue({});
+
+      const dto = {
+        email: "alex@example.com",
+        password: "SecurePassword123!",
+      };
+
+      const result = await service.login(dto);
+
+      expect(prisma.user.findUnique).toHaveBeenCalledWith({
+        where: { email: dto.email },
+      });
+      expect(passwordService.verifyPassword).toHaveBeenCalledWith(
+        "hashed_password",
+        dto.password,
+      );
+      expect(jwtService.signAsync).toHaveBeenCalledWith({
+        sub: "user-uuid-123",
+        email: "alex@example.com",
+        status: "PENDING_ONBOARDING",
+        role: "USER",
+      });
+      expect(result).toEqual({
+        user: {
+          id: "user-uuid-123",
+          email: "alex@example.com",
+          status: "PENDING_ONBOARDING",
+          role: "USER",
+        },
+        accessToken: "mock_signed_jwt_access_token",
+        tokenType: "Bearer",
+        expiresIn: 900,
+      });
+    });
+
+    it("should throw UnauthorizedException if user not found", async () => {
+      mockPrismaService.user.findUnique.mockResolvedValue(null);
+
+      const dto = { email: "unknown@example.com", password: "password" };
+
+      await expect(service.login(dto)).rejects.toThrow(UnauthorizedException);
+    });
+
+    it("should throw UnauthorizedException if password is wrong", async () => {
+      mockPrismaService.user.findUnique.mockResolvedValue({
+        id: "user-uuid-123",
+        email: "alex@example.com",
+        passwordHash: "hashed_password",
+        status: "VERIFIED",
+      });
+      mockPasswordService.verifyPassword.mockResolvedValue(false);
+
+      const dto = { email: "alex@example.com", password: "WrongPassword" };
+
+      await expect(service.login(dto)).rejects.toThrow(UnauthorizedException);
+    });
+
+    it("should throw UnauthorizedException if user status is UNVERIFIED", async () => {
+      mockPrismaService.user.findUnique.mockResolvedValue({
+        id: "user-uuid-123",
+        email: "unverified@example.com",
+        passwordHash: "hashed_password",
+        status: "UNVERIFIED",
+      });
+      mockPasswordService.verifyPassword.mockResolvedValue(true);
+
+      const dto = {
+        email: "unverified@example.com",
+        password: "SecurePassword123!",
+      };
+
+      await expect(service.login(dto)).rejects.toThrow(UnauthorizedException);
+    });
+
+    it("should throw UnauthorizedException if user status is SUSPENDED or DEACTIVATED", async () => {
+      mockPrismaService.user.findUnique.mockResolvedValue({
+        id: "user-uuid-123",
+        email: "suspended@example.com",
+        passwordHash: "hashed_password",
+        status: "SUSPENDED",
+      });
+      mockPasswordService.verifyPassword.mockResolvedValue(true);
+
+      const dto = {
+        email: "suspended@example.com",
+        password: "SecurePassword123!",
+      };
+
+      await expect(service.login(dto)).rejects.toThrow(UnauthorizedException);
     });
   });
 });

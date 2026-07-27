@@ -6,7 +6,9 @@ import {
   ApiOperation,
   ApiResponse,
   ApiTags,
+  ApiUnauthorizedResponse,
 } from "@nestjs/swagger";
+import { LoginDto } from "../dto/login.dto";
 import { RegisterDto } from "../dto/register.dto";
 import { VerifyCodeDto } from "../dto/verify-code.dto";
 import { AuthService } from "../services/auth.service";
@@ -80,6 +82,47 @@ export class AuthController {
     return {
       statusCode: HttpStatus.OK,
       message: "Account verified successfully",
+      data,
+    };
+  }
+
+  @Post("login")
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: "Authenticate user with email and password" })
+  @ApiResponse({
+    status: 200,
+    description:
+      "Login successful. Returns authenticated user details and JWT access token.",
+    schema: {
+      example: {
+        statusCode: 200,
+        message: "Login successful",
+        data: {
+          user: {
+            id: "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d",
+            email: "alex@example.com",
+            status: "PENDING_ONBOARDING",
+            role: "USER",
+          },
+          accessToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+          tokenType: "Bearer",
+          expiresIn: 900,
+        },
+      },
+    },
+  })
+  @ApiBadRequestResponse({
+    description: "Validation failed for request DTO",
+  })
+  @ApiUnauthorizedResponse({
+    description:
+      "Invalid credentials or account is unverified/suspended/deactivated",
+  })
+  async login(@Body() dto: LoginDto) {
+    const data = await this.authService.login(dto);
+    return {
+      statusCode: HttpStatus.OK,
+      message: "Login successful",
       data,
     };
   }

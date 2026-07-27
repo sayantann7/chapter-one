@@ -3,8 +3,11 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
+  UnauthorizedException,
 } from "@nestjs/common";
+import { JwtService } from "@nestjs/jwt";
 import { PrismaService } from "../../../prisma/prisma.service";
+import { LoginDto } from "../dto/login.dto";
 import { RegisterDto } from "../dto/register.dto";
 import { VerifyCodeDto } from "../dto/verify-code.dto";
 import { PasswordService } from "./password.service";
@@ -21,12 +24,25 @@ export interface VerificationResult {
   status: string;
 }
 
+export interface LoginResult {
+  user: {
+    id: string;
+    email: string | null;
+    status: string;
+    role: string;
+  };
+  accessToken: string;
+  tokenType: string;
+  expiresIn: number;
+}
+
 @Injectable()
 export class AuthService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly passwordService: PasswordService,
     private readonly verificationService: VerificationService,
+    private readonly jwtService: JwtService,
   ) {}
 
   async register(dto: RegisterDto): Promise<RegistrationResult> {
@@ -94,10 +110,8 @@ export class AuthService {
       throw new BadRequestException("Invalid verification code");
     }
 
-    // Delete code from Redis immediately to prevent reuse
     await this.verificationService.deleteVerificationCode(dto.userId);
 
-    // Update user state to PENDING_ONBOARDING
     const updatedUser = await this.prisma.user.update({
       where: { id: dto.userId },
       data: { status: "PENDING_ONBOARDING", isVerified: true },
@@ -106,6 +120,60 @@ export class AuthService {
     return {
       userId: updatedUser.id,
       status: updatedUser.status,
+    };
+  }
+
+  async login(dto: LoginDto): Promise<LoginResult> {
+    const user = await this.prisma.user.findUnique({
+      where: { email: dto.email },
+    });
+
+    if (!user || !user.passwordHash) {
+      throw new UnauthorizedException("Invalid credentials");
+    }
+
+    const isPasswordValid = await this.passwordService.verifyPassword(
+      user.passwordHash,
+      dto.password,
+    );
+    if (!isPasswordValid) {
+      throw new UnauthorizedException("Invalid credentials");
+    }
+
+    if (user.status === "UNVERIFIED") {
+      throw new UnauthorizedException(
+        "Account is not verified. Please verify your account first.",
+      );
+    }
+
+    if (user.status === "SUSPENDED" || user.status === "DEACTIVATED") {
+      throw new UnauthorizedException("Account is suspended or deactivated");
+    }
+
+    const payload = {
+      sub: user.id,
+      email: user.email,
+      status: user.status,
+      role: user.role,
+    };
+
+    const accessToken = await this.jwtService.signAsync(payload);
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: { updatedAt: new Date() },
+    });
+
+    return {
+      user: {
+        id: user.id,
+        email: user.email,
+        status: user.status,
+        role: user.role,
+      },
+      accessToken,
+      tokenType: "Bearer",
+      expiresIn: 900,
     };
   }
 }
