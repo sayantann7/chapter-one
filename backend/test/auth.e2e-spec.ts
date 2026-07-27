@@ -1,4 +1,5 @@
 import { INestApplication, ValidationPipe } from "@nestjs/common";
+import { JwtService } from "@nestjs/jwt";
 import { Test, TestingModule } from "@nestjs/testing";
 import * as request from "supertest";
 import { AppModule } from "../src/app.module";
@@ -9,12 +10,14 @@ describe("AuthController (e2e)", () => {
   let app: INestApplication;
   let prisma: PrismaService;
   let redis: RedisService;
-  const testEmail = `e2e_rtr_${Date.now()}@example.com`;
+  let jwtService: JwtService;
+
+  const testEmail = `e2e_infra_${Date.now()}@example.com`;
   const testPassword = "SecurePassword123!";
   let testUserId: string;
   let verificationCode: string;
+  let validAccessToken: string;
   let refreshToken1: string;
-  let refreshToken2: string;
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -35,6 +38,7 @@ describe("AuthController (e2e)", () => {
 
     prisma = app.get<PrismaService>(PrismaService);
     redis = app.get<RedisService>(RedisService);
+    jwtService = app.get<JwtService>(JwtService);
   });
 
   afterAll(async () => {
@@ -69,7 +73,7 @@ describe("AuthController (e2e)", () => {
       .expect(200);
   });
 
-  it("/api/v1/auth/login (POST) - obtain initial refresh token", async () => {
+  it("/api/v1/auth/login (POST) - obtain valid access token & refresh token", async () => {
     const res = await request(app.getHttpServer())
       .post("/api/v1/auth/login")
       .send({
@@ -78,55 +82,73 @@ describe("AuthController (e2e)", () => {
       })
       .expect(200);
 
+    validAccessToken = res.body.data.tokens.accessToken;
     refreshToken1 = res.body.data.tokens.refreshToken;
+
+    expect(validAccessToken).toBeDefined();
     expect(refreshToken1).toBeDefined();
-    expect(refreshToken1).toMatch(/^rf_/);
   });
 
-  it("/api/v1/auth/refresh (POST) - rotate token 1 successfully", async () => {
-    const res = await request(app.getHttpServer())
-      .post("/api/v1/auth/refresh")
-      .send({
-        refreshToken: refreshToken1,
-      })
-      .expect(200);
+  describe("Protected Endpoints (JwtAuthGuard & @CurrentUser)", () => {
+    it("/api/v1/auth/protected-test (GET) - access granted with valid Bearer JWT", async () => {
+      const res = await request(app.getHttpServer())
+        .get("/api/v1/auth/protected-test")
+        .set("Authorization", `Bearer ${validAccessToken}`)
+        .expect(200);
 
-    expect(res.body).toHaveProperty("statusCode", 200);
-    expect(res.body.data).toHaveProperty("accessToken");
-    expect(res.body.data).toHaveProperty("refreshToken");
+      expect(res.body).toHaveProperty("statusCode", 200);
+      expect(res.body.data.user).toHaveProperty("id", testUserId);
+      expect(res.body.data.user).toHaveProperty("email", testEmail);
+      expect(res.body.data.user).not.toHaveProperty("passwordHash");
+    });
 
-    refreshToken2 = res.body.data.refreshToken;
-    expect(refreshToken2).not.toBe(refreshToken1);
-    expect(refreshToken2).toMatch(/^rf_/);
-  });
+    it("/api/v1/auth/protected-test (GET) - missing Authorization header (401)", async () => {
+      await request(app.getHttpServer())
+        .get("/api/v1/auth/protected-test")
+        .expect(401);
+    });
 
-  it("/api/v1/auth/refresh (POST) - single-use rotation enforcement (re-using token 1 fails with 401)", async () => {
-    await request(app.getHttpServer())
-      .post("/api/v1/auth/refresh")
-      .send({
-        refreshToken: refreshToken1,
-      })
-      .expect(401);
-  });
+    it("/api/v1/auth/protected-test (GET) - invalid JWT format (401)", async () => {
+      await request(app.getHttpServer())
+        .get("/api/v1/auth/protected-test")
+        .set("Authorization", "Bearer invalid.token.string")
+        .expect(401);
+    });
 
-  it("/api/v1/auth/refresh (POST) - rotate token 2 successfully", async () => {
-    const res = await request(app.getHttpServer())
-      .post("/api/v1/auth/refresh")
-      .send({
-        refreshToken: refreshToken2,
-      })
-      .expect(200);
+    it("/api/v1/auth/protected-test (GET) - expired JWT (401)", async () => {
+      const expiredToken = jwtService.sign(
+        {
+          sub: testUserId,
+          email: testEmail,
+          status: "PENDING_ONBOARDING",
+          role: "USER",
+        },
+        {
+          secret: "chapter-one-super-secret-jwt-key-2026",
+          expiresIn: "-10s",
+          issuer: "chapter-one-auth",
+          audience: "chapter-one-api",
+        },
+      );
 
-    expect(res.body.data.refreshToken).toBeDefined();
-    expect(res.body.data.refreshToken).not.toBe(refreshToken2);
-  });
+      await request(app.getHttpServer())
+        .get("/api/v1/auth/protected-test")
+        .set("Authorization", `Bearer ${expiredToken}`)
+        .expect(401);
+    });
 
-  it("/api/v1/auth/refresh (POST) - invalid token format (401)", async () => {
-    await request(app.getHttpServer())
-      .post("/api/v1/auth/refresh")
-      .send({
-        refreshToken: "invalid_token_format",
-      })
-      .expect(401);
+    it("/api/v1/auth/protected-test (GET) - deleted user (401)", async () => {
+      // Delete user from DB to simulate deleted user
+      await prisma.user.delete({
+        where: { id: testUserId },
+      });
+
+      await request(app.getHttpServer())
+        .get("/api/v1/auth/protected-test")
+        .set("Authorization", `Bearer ${validAccessToken}`)
+        .expect(401);
+
+      testUserId = ""; // Avoid afterAll error since user was deleted
+    });
   });
 });

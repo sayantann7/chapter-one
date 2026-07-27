@@ -2,7 +2,7 @@
 
 ## Current Status
 
-✅ Phase 1 — Authentication Architecture Refactor Implemented & Verified.
+✅ Phase 1 — Authentication Infrastructure Implemented & Verified.
 
 ---
 
@@ -23,13 +23,19 @@
 - Implemented **User Login** feature (`POST /api/v1/auth/login`) in NestJS
 - Implemented **Refresh Token Infrastructure** in NestJS
 - Implemented **Refresh Token Rotation** feature (`POST /api/v1/auth/refresh`) in NestJS
-- Implemented **Authentication Architecture Refactor** in NestJS:
-  - Created dedicated `SessionService` (`session.service.ts`) as the single owner of Redis-backed session persistence (`createSession`, `getSession`, `updateSession`, `deleteSession`, `deleteAllSessionsForUser`) and TTL management
-  - Refactored `TokenService` (`token.service.ts`) into a pure token utility service without Redis dependencies
-  - Introduced typed JWT payload interfaces (`jwt-payload.interface.ts`) for `AccessTokenPayload` and `RefreshTokenPayload`
-  - Centralized all authentication configuration in `ConfigService` (`JWT_SECRET`, `JWT_ACCESS_EXPIRES_IN`, `JWT_REFRESH_EXPIRES_IN`, `JWT_ISSUER`, `JWT_AUDIENCE`)
-  - Maintained 100% public API backwards compatibility across all endpoints and contracts
-  - Added unit test suite `session.service.spec.ts` (6 unit test suites, 36 unit tests) and updated E2E integration test suite (7 scenarios)
+- Implemented **Authentication Architecture Refactor** in NestJS
+- Implemented **Authentication Infrastructure** in NestJS:
+  - Installed `@nestjs/passport`, `passport`, `passport-jwt`, `@types/passport-jwt` dependencies
+  - Implemented `JwtStrategy` (`jwt.strategy.ts`) extending Passport `Strategy`:
+    - Validates JWT signature, expiration (`ignoreExpiration: false`), issuer (`JWT_ISSUER`), and audience (`JWT_AUDIENCE`)
+    - Loads user from database via `PrismaService` and rejects soft-deleted or non-existent users with `401 Unauthorized`
+    - Attaches sanitized user object (omitting `passwordHash`) to `request.user`
+  - Implemented `JwtAuthGuard` (`jwt-auth.guard.ts`) extending `AuthGuard('jwt')` for protecting authenticated routes
+  - Implemented `@CurrentUser()` custom parameter decorator (`current-user.decorator.ts`) to extract authenticated `request.user` or individual user properties
+  - Configured global Bearer Authentication in Swagger `DocumentBuilder` (`main.ts`)
+  - Registered `PassportModule` and `JwtStrategy` in `AuthModule`
+  - Written unit test suites (`jwt.strategy.spec.ts`, `jwt-auth.guard.spec.ts`, `current-user.decorator.spec.ts` — 9 suites, 45 unit tests total)
+  - Updated E2E integration test suite (`test/auth.e2e-spec.ts`) verifying valid JWT access, missing JWT (401), invalid JWT (401), expired JWT (401), and deleted user rejection (401)
 
 ---
 
@@ -53,7 +59,7 @@ None.
 
 ## Notes
 
-The Authentication Architecture Refactor is fully implemented and verified. Unit tests (6 suites, 36 tests) and E2E integration tests (7 test scenarios) pass cleanly with zero public API breaking changes.
+The Authentication Infrastructure is fully implemented and verified. Unit tests (9 suites, 45 tests) and E2E integration tests (8 test scenarios) pass cleanly.
 
 All implementation follows:
 

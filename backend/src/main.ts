@@ -23,7 +23,15 @@ async function bootstrap() {
       "API documentation for Chapter One relationship-first dating platform",
     )
     .setVersion("1.0")
-    .addBearerAuth()
+    .addBearerAuth(
+      {
+        type: "http",
+        scheme: "bearer",
+        bearerFormat: "JWT",
+        description: "Enter JWT Bearer token",
+      },
+      "Bearer",
+    )
     .build();
 
   const document = SwaggerModule.createDocument(app, swaggerConfig);

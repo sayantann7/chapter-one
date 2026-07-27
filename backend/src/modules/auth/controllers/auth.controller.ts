@@ -1,14 +1,17 @@
 import {
   Body,
   Controller,
+  Get,
   HttpCode,
   HttpStatus,
   Ip,
   Headers,
   Post,
+  UseGuards,
 } from "@nestjs/common";
 import {
   ApiBadRequestResponse,
+  ApiBearerAuth,
   ApiConflictResponse,
   ApiNotFoundResponse,
   ApiOperation,
@@ -16,10 +19,12 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from "@nestjs/swagger";
+import { CurrentUser } from "../decorators/current-user.decorator";
 import { LoginDto } from "../dto/login.dto";
 import { RefreshTokenDto } from "../dto/refresh-token.dto";
 import { RegisterDto } from "../dto/register.dto";
 import { VerifyCodeDto } from "../dto/verify-code.dto";
+import { JwtAuthGuard } from "../guards/jwt-auth.guard";
 import { AuthService } from "../services/auth.service";
 
 @ApiTags("Auth")
@@ -184,6 +189,27 @@ export class AuthController {
       statusCode: HttpStatus.OK,
       message: "Tokens refreshed successfully",
       data,
+    };
+  }
+
+  @Get("protected-test")
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth("Bearer")
+  @ApiOperation({
+    summary: "Test protected endpoint requiring valid JWT bearer token",
+  })
+  @ApiResponse({
+    status: 200,
+    description: "Access granted. Returns authenticated user payload.",
+  })
+  @ApiUnauthorizedResponse({
+    description: "Missing, invalid, expired JWT, or deleted user",
+  })
+  async protectedTest(@CurrentUser() user: any) {
+    return {
+      statusCode: HttpStatus.OK,
+      message: "Access granted to protected route",
+      data: { user },
     };
   }
 }

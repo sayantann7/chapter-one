@@ -2,88 +2,62 @@
 
 ## Feature
 
-Authentication Architecture Refactor
+Authentication Infrastructure
 
 ---
 
 ## Goal
 
-Improve the internal architecture of the authentication module without changing any public API behavior.
+Implement the shared authentication infrastructure required by all authenticated endpoints.
 
-This is a refactoring task only. Existing authentication endpoints and responses must continue to work exactly as they do today.
+This feature establishes JWT authentication across the application and provides the reusable components that every protected API will rely on.
 
 ---
 
 ## Scope
 
-Implement ONLY the following architectural improvements.
+Implement ONLY the authentication infrastructure.
 
-### 1. SessionService
+This includes:
 
-Create a dedicated SessionService responsible for all session persistence.
+### JWT Strategy
 
-Move all Redis session operations out of TokenService.
-
-SessionService should own:
-
-- Create session
-- Retrieve session
-- Update session
-- Delete session
-- Delete all sessions for a user
-- Session TTL management
+- Validate JWT signatures
+- Validate expiration
+- Validate issuer
+- Validate audience
+- Load authenticated user from database
+- Reject deleted users
+- Reject invalid tokens
 
 ---
 
-### 2. TokenService Refactor
+### JWT Authentication Guard
 
-TokenService should ONLY be responsible for:
-
-- Creating access tokens
-- Creating refresh tokens
-- Verifying JWTs
-- Decoding JWTs
-- Creating token identifiers
-
-It must NOT communicate directly with Redis.
+Create a reusable JwtAuthGuard for protecting authenticated routes.
 
 ---
 
-### 3. Typed JWT Payloads
+### Current User Decorator
 
-Introduce strongly typed payload interfaces.
-
-Examples:
-
-- AccessTokenPayload
-- RefreshTokenPayload
-
-Replace inline payload objects throughout the authentication module.
+Create a strongly typed @CurrentUser() decorator that injects the authenticated user into controllers.
 
 ---
 
-### 4. Configuration Cleanup
+### Swagger
 
-Move all authentication configuration into ConfigService.
+Configure Bearer Authentication globally.
 
-Do not hardcode:
-
-- Access token expiration
-- Refresh token expiration
-- JWT issuer
-- JWT audience
-
-Read these from environment variables.
+Protected endpoints should automatically display the authorization requirement.
 
 ---
 
-### 5. Internal Cleanup
+### Testing
 
-Remove duplicated authentication logic where appropriate.
+Write:
 
-Improve naming consistency.
-
-Improve dependency injection where appropriate.
+- Unit tests
+- Integration (E2E) tests
 
 ---
 
@@ -91,27 +65,24 @@ Improve dependency injection where appropriate.
 
 Do NOT implement:
 
-- Opaque refresh tokens
-- Refresh token hashing
-- Replay attack detection
-- Session family invalidation
-- Logout
-- Password reset
-- OAuth
-- Authentication Guards
 - /auth/me
+- Logout
+- Password Reset
+- OAuth
+- RolesGuard
+- UserStatusGuard
+- Rate Limiting
+- Profile APIs
 
 ---
 
 ## Requirements
 
-This is a refactor.
+This feature must introduce reusable authentication infrastructure only.
 
-There must be **NO breaking API changes.**
+Do not introduce authorization logic.
 
-Existing endpoints must continue working exactly as before.
-
-No request or response contracts should change.
+Do not modify existing authentication endpoints.
 
 ---
 
@@ -119,13 +90,16 @@ No request or response contracts should change.
 
 The task is complete only when:
 
-- SessionService exists
-- TokenService no longer communicates with Redis
-- JWT payloads are strongly typed
-- Authentication configuration uses ConfigService
-- Existing endpoints behave identically
-- Existing unit tests still pass
-- Existing E2E tests still pass
+- JwtStrategy validates JWTs correctly
+- JwtAuthGuard protects endpoints
+- @CurrentUser() works correctly
+- Invalid JWTs return 401
+- Missing JWTs return 401
+- Expired JWTs return 401
+- Deleted users cannot authenticate
+- Swagger supports Bearer Authentication
+- Unit tests pass
+- Integration tests pass
 - Build passes
 - Lint passes
 - No TypeScript errors exist
@@ -134,10 +108,11 @@ The task is complete only when:
 
 ## Deliverables
 
-- SessionService
-- Refactored TokenService
-- Typed JWT payloads
-- Config improvements
+- JwtStrategy
+- JwtAuthGuard
+- CurrentUser decorator
+- Swagger Bearer configuration
+- Tests
 - Updated project/PROGRESS.md
 
 Do not implement anything outside this scope.
