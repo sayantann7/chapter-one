@@ -10,15 +10,15 @@ Legend
 
 # Phase 0 — Project Setup
 
-- [ ] Initialize monorepo
-- [ ] Backend (NestJS)
-- [ ] Frontend (Next.js)
-- [ ] Mobile (Expo)
-- [ ] PostgreSQL
-- [ ] Prisma
-- [ ] Redis
-- [ ] Docker
-- [ ] Shared tooling (ESLint, Prettier)
+- [x] Initialize monorepo
+- [x] Backend (NestJS)
+- [x] Frontend (Next.js)
+- [x] Mobile (Expo)
+- [x] PostgreSQL
+- [x] Prisma
+- [x] Redis
+- [x] Docker
+- [x] Shared tooling (ESLint, Prettier)
 - [ ] CI Pipeline
 
 ---

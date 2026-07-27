@@ -1,28 +1,34 @@
-# Current Task
-
-## Feature
+Feature
 
 Authentication Design
 
-## Goal
+Goal
 
-Design the authentication system for Chapter One before implementation.
+Design the authentication system.
 
-## Scope
+Scope
 
-- Design Prisma models
-- Design authentication flow
-- Design JWT strategy
-- Design refresh token strategy
-- Design API endpoints
-- Design folder structure
-- Design validation rules
-
-## Deliverables
-
-- Authentication architecture document
-- Prisma schema proposal
-- API endpoint specification
+- User model
+- Authentication flow
+- JWT strategy
+- Refresh tokens
 - Folder structure
+- API specification
+- Validation
+- Security
 
-Do NOT implement any code.
+Deliverables
+
+- Architecture document
+
+- API specification
+
+- Prisma schema proposal
+
+- Sequence diagrams
+
+No implementation.
+
+No code.
+
+No project modifications.
