@@ -1,5 +1,6 @@
 import { INestApplication, ValidationPipe } from "@nestjs/common";
 import { Test, TestingModule } from "@nestjs/testing";
+import { Gender, RelationshipIntent } from "@prisma/client";
 import * as request from "supertest";
 import { AppModule } from "../src/app.module";
 import { PrismaService } from "../src/prisma/prisma.service";
@@ -10,8 +11,8 @@ describe("ProfileController (e2e)", () => {
   let prisma: PrismaService;
   let redis: RedisService;
 
-  const testEmail1 = `e2e_prompt_test1_${Date.now()}@example.com`;
-  const testEmail2 = `e2e_prompt_test2_${Date.now()}@example.com`;
+  const testEmail1 = `e2e_pref_test1_${Date.now()}@example.com`;
+  const testEmail2 = `e2e_pref_test2_${Date.now()}@example.com`;
   const testPassword = "SecurePassword123!";
 
   let userId1: string;
@@ -311,6 +312,76 @@ describe("ProfileController (e2e)", () => {
       expect(res.body).toHaveProperty("statusCode", 200);
       expect(res.body.data).toHaveLength(2);
       expect(res.body.data[0]).toHaveProperty("promptId", catalogPromptIds[0]);
+    });
+  });
+
+  describe("GET /api/v1/profile/preferences", () => {
+    it("should return 401 Unauthorized for unauthenticated request", async () => {
+      await request(app.getHttpServer())
+        .get("/api/v1/profile/preferences")
+        .expect(401);
+    });
+
+    it("should return default preferences when none exist yet (200 OK)", async () => {
+      const res = await request(app.getHttpServer())
+        .get("/api/v1/profile/preferences")
+        .set("Authorization", `Bearer ${token1}`)
+        .expect(200);
+
+      expect(res.body).toHaveProperty("statusCode", 200);
+      expect(res.body.data).toHaveProperty("minAge", 18);
+      expect(res.body.data).toHaveProperty("maxAge", 99);
+      expect(res.body.data).toHaveProperty("maxDistanceKm", 50);
+    });
+  });
+
+  describe("PATCH /api/v1/profile/preferences", () => {
+    it("should return 401 Unauthorized for unauthenticated request", async () => {
+      await request(app.getHttpServer())
+        .patch("/api/v1/profile/preferences")
+        .send({ minAge: 21, maxAge: 35 })
+        .expect(401);
+    });
+
+    it("should return 400 Bad Request when minAge > maxAge", async () => {
+      await request(app.getHttpServer())
+        .patch("/api/v1/profile/preferences")
+        .set("Authorization", `Bearer ${token1}`)
+        .send({ minAge: 40, maxAge: 25 })
+        .expect(400);
+    });
+
+    it("should return 400 Bad Request for duplicate preferredGenders enum entries", async () => {
+      await request(app.getHttpServer())
+        .patch("/api/v1/profile/preferences")
+        .set("Authorization", `Bearer ${token1}`)
+        .send({ preferredGenders: [Gender.FEMALE, Gender.FEMALE] })
+        .expect(400);
+    });
+
+    it("should update preferences successfully (200 OK)", async () => {
+      const payload = {
+        minAge: 22,
+        maxAge: 32,
+        maxDistanceKm: 40,
+        preferredGenders: [Gender.FEMALE, Gender.NON_BINARY],
+        preferredIntents: [RelationshipIntent.LONG_TERM],
+      };
+
+      const res = await request(app.getHttpServer())
+        .patch("/api/v1/profile/preferences")
+        .set("Authorization", `Bearer ${token1}`)
+        .send(payload)
+        .expect(200);
+
+      expect(res.body).toHaveProperty("statusCode", 200);
+      expect(res.body.data).toHaveProperty("minAge", 22);
+      expect(res.body.data).toHaveProperty("maxAge", 32);
+      expect(res.body.data).toHaveProperty("maxDistanceKm", 40);
+      expect(res.body.data.preferredGenders).toContain(Gender.FEMALE);
+      expect(res.body.data.preferredIntents).toContain(
+        RelationshipIntent.LONG_TERM,
+      );
     });
   });
 });

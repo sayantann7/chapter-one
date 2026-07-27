@@ -2,64 +2,59 @@
 
 ## Feature
 
-Profile Prompts
+Profile Preferences
 
 ---
 
 ## Goal
 
-Implement management of profile prompts and user responses.
+Implement management of user discovery preferences.
 
-The Prompt catalog is system-managed.
-
-Users may answer up to three prompts from the catalog.
+These preferences are independent of the public profile and are used later by Discovery and Matching.
 
 ---
 
 ## Scope
 
-### Prompt Catalog
+### Retrieve Preferences
 
-GET /api/v1/profile/prompts
+GET /api/v1/profile/preferences
 
-Return all active prompts grouped by category.
+Return the authenticated user's discovery preferences.
 
-Catalog is read-only.
+If none exist, return sensible defaults.
 
 ---
 
-### User Prompt Responses
+### Update Preferences
 
-PUT /api/v1/profile/prompts
+PATCH /api/v1/profile/preferences
 
-Replace the authenticated user's prompt responses.
+Allow updating:
 
-Requirements:
-
-- minimum 1 response
-- maximum 3 responses
-- prompt IDs must exist
-- no duplicate prompt IDs
-- answer length: 5–300 characters
-
-Replace the entire set atomically.
+- minAge
+- maxAge
+- maxDistanceKm
+- preferredGenders
+- preferredIntents
 
 ---
 
 ### Validation
 
-Validate:
+Enforce:
 
-- 1–3 responses
-- unique prompt IDs
-- valid prompt IDs
-- answer length
+- minAge >= 18
+- maxAge <= 100
+- minAge <= maxAge
+- distance > 0
+- no duplicate enum values
 
 ---
 
 ### Authentication
 
-Protect all endpoints with:
+Protect all endpoints using:
 
 - JwtAuthGuard
 - @CurrentUser()
@@ -68,7 +63,7 @@ Protect all endpoints with:
 
 ### Swagger
 
-Document all endpoints.
+Document every endpoint.
 
 ---
 
@@ -81,11 +76,10 @@ Write:
 
 Cover:
 
-- catalog retrieval
-- successful replacement
-- duplicate prompts
-- invalid prompt IDs
-- invalid answer lengths
+- default preferences
+- update
+- invalid ranges
+- duplicate enum values
 - unauthorized access
 
 ---
@@ -94,20 +88,19 @@ Cover:
 
 Do NOT implement:
 
-- AI prompt suggestions
-- voice prompt answers
-- completion engine
 - matching
-- embeddings
+- recommendation engine
+- discovery queries
+- completion engine
 
 ---
 
 ## Definition of Done
 
-- catalog endpoint works
-- replacement endpoint works
+- GET preferences works
+- PATCH preferences works
+- defaults returned
 - validation enforced
-- atomic replacement
 - tests pass
 - build passes
 - lint passes
@@ -117,8 +110,8 @@ Do NOT implement:
 ## Deliverables
 
 - DTOs
-- PromptService
-- PromptRepository
+- PreferenceRepository
+- PreferenceService
 - Controller updates
 - Tests
 - Updated project/PROGRESS.md

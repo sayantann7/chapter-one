@@ -2,7 +2,7 @@
 
 ## Current Status
 
-✅ Phase 1 — Profile Prompts Management Implemented & Verified.
+✅ Phase 1 — Profile Preferences Management Implemented & Verified.
 
 ---
 
@@ -33,16 +33,17 @@
 - Implemented **Profile Photos Management** in NestJS
 - Implemented **Profile Interests Management** in NestJS
 - Implemented **Profile Architecture Refactor** in NestJS
-- Implemented **Profile Prompts Management** in NestJS:
-  - Created `PromptResponseDto` (validating `promptId` and `answer` length 5..300 chars) and `UpdateProfilePromptsDto` (enforcing `@ArrayMinSize(1)` and `@ArrayMaxSize(3)`)
-  - Created `PromptRepository` (`findAll`, `findManyByIds`, `replaceUserPrompts`) encapsulating Prisma prompt queries
-  - Created `PromptService` (`getPromptsCatalog`, `updateUserPrompts`) handling catalog grouping and atomic replacement
-  - Implemented `GET /api/v1/profile/prompts` endpoint protected by `JwtAuthGuard` and `@CurrentUser()` returning read-only catalog grouped by category
-  - Implemented `PUT /api/v1/profile/prompts` endpoint protected by `JwtAuthGuard` and `@CurrentUser()` for atomically replacing user prompt responses via database transaction
-  - Added Swagger documentation annotations across prompt endpoints with Bearer auth support (`@ApiBearerAuth('Bearer')`)
-  - Updated `ProfileModule` registering `PromptRepository` and `PromptService`
-  - Created unit test suite (`prompt.service.spec.ts`) and updated `profile.controller.spec.ts` (16 suites, 93 unit tests total across all modules)
-  - Updated E2E integration test suite (`test/profile.e2e-spec.ts` — 30 scenarios total across 3 suites) verifying prompt catalog listing, atomic prompt replacement, count bounds validation (1..3), duplicate ID rejection, invalid ID rejection, answer length validation (5..300), and 401 unauthenticated access
+- Implemented **Profile Prompts Management** in NestJS
+- Implemented **Profile Preferences Management** in NestJS:
+  - Created `UpdatePreferencesDto` (validating optional `minAge` 18..100, `maxAge` 18..100, `maxDistanceKm` 1..500, `preferredGenders` array with `@ArrayUnique()`, `preferredIntents` array with `@ArrayUnique()`)
+  - Created `PreferenceRepository` (`findByUserId`, `upsert`) encapsulating Prisma preference database queries
+  - Created `PreferenceService` (`getPreferences`, `updatePreferences`) handling fallback default preferences (`minAge: 18, maxAge: 99, maxDistanceKm: 50`) and age range validation (`minAge <= maxAge`)
+  - Implemented `GET /api/v1/profile/preferences` endpoint protected by `JwtAuthGuard` and `@CurrentUser()` returning user preferences or sensible default fallback
+  - Implemented `PATCH /api/v1/profile/preferences` endpoint protected by `JwtAuthGuard` and `@CurrentUser()` for creating/updating user discovery preferences
+  - Added Swagger documentation annotations across preference endpoints with Bearer auth support (`@ApiBearerAuth('Bearer')`)
+  - Updated `ProfileModule` registering `PreferenceRepository` and `PreferenceService`
+  - Created unit test suite (`preference.service.spec.ts`) and updated `profile.controller.spec.ts` (17 suites, 100 unit tests total across all modules)
+  - Updated E2E integration test suite (`test/profile.e2e-spec.ts` — 36 scenarios total across 3 suites) verifying default preferences retrieval, preference updates, age range validation (`minAge > maxAge`), duplicate enum value rejection, and 401 unauthenticated access
 
 ---
 
@@ -66,7 +67,7 @@ None.
 
 ## Notes
 
-Profile Prompts Management is fully implemented and verified. Unit tests (16 suites, 93 tests) and E2E integration tests (30 test scenarios across 3 suites) pass cleanly.
+Profile Preferences Management is fully implemented and verified. Unit tests (17 suites, 100 tests) and E2E integration tests (36 test scenarios across 3 suites) pass cleanly.
 
 All implementation follows:
 

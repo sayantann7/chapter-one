@@ -2,6 +2,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { ProfileController } from "../controllers/profile.controller";
 import { InterestService } from "../services/interest.service";
 import { PhotoService } from "../services/photo.service";
+import { PreferenceService } from "../services/preference.service";
 import { ProfileService } from "../services/profile.service";
 import { PromptService } from "../services/prompt.service";
 
@@ -11,6 +12,7 @@ describe("ProfileController", () => {
   let photoService: PhotoService;
   let interestService: InterestService;
   let promptService: PromptService;
+  let preferenceService: PreferenceService;
 
   const mockProfile = {
     id: "profile-uuid-123",
@@ -54,6 +56,15 @@ describe("ProfileController", () => {
     },
   ];
 
+  const mockPreferences = {
+    profileId: "profile-uuid-123",
+    minAge: 18,
+    maxAge: 99,
+    maxDistanceKm: 50,
+    preferredGenders: [],
+    preferredIntents: [],
+  };
+
   const mockProfileService = {
     getProfileForCurrentUser: jest.fn().mockResolvedValue(mockProfile),
     createProfile: jest.fn().mockResolvedValue(mockProfile),
@@ -80,6 +91,13 @@ describe("ProfileController", () => {
     updateUserPrompts: jest.fn().mockResolvedValue(mockUserPrompts),
   };
 
+  const mockPreferenceService = {
+    getPreferences: jest.fn().mockResolvedValue(mockPreferences),
+    updatePreferences: jest
+      .fn()
+      .mockResolvedValue({ ...mockPreferences, minAge: 21, maxAge: 35 }),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [ProfileController],
@@ -88,6 +106,7 @@ describe("ProfileController", () => {
         { provide: PhotoService, useValue: mockPhotoService },
         { provide: InterestService, useValue: mockInterestService },
         { provide: PromptService, useValue: mockPromptService },
+        { provide: PreferenceService, useValue: mockPreferenceService },
       ],
     }).compile();
 
@@ -96,6 +115,7 @@ describe("ProfileController", () => {
     photoService = module.get<PhotoService>(PhotoService);
     interestService = module.get<InterestService>(InterestService);
     promptService = module.get<PromptService>(PromptService);
+    preferenceService = module.get<PreferenceService>(PreferenceService);
   });
 
   it("should be defined", () => {
@@ -236,6 +256,34 @@ describe("ProfileController", () => {
       statusCode: 200,
       message: "User prompt responses updated successfully",
       data: mockUserPrompts,
+    });
+  });
+
+  it("should call preferenceService.getPreferences and return formatted response", async () => {
+    const res = await controller.getPreferences("user-uuid-123");
+
+    expect(preferenceService.getPreferences).toHaveBeenCalledWith(
+      "user-uuid-123",
+    );
+    expect(res).toEqual({
+      statusCode: 200,
+      message: "User preferences retrieved successfully",
+      data: mockPreferences,
+    });
+  });
+
+  it("should call preferenceService.updatePreferences and return formatted response", async () => {
+    const dto = { minAge: 21, maxAge: 35 };
+    const res = await controller.updatePreferences("user-uuid-123", dto);
+
+    expect(preferenceService.updatePreferences).toHaveBeenCalledWith(
+      "user-uuid-123",
+      dto,
+    );
+    expect(res).toEqual({
+      statusCode: 200,
+      message: "User preferences updated successfully",
+      data: { ...mockPreferences, minAge: 21, maxAge: 35 },
     });
   });
 });

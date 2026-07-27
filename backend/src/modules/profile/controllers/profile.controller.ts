@@ -26,11 +26,13 @@ import { JwtAuthGuard } from "../../auth/guards/jwt-auth.guard";
 import { CreateProfilePhotoDto } from "../dto/create-profile-photo.dto";
 import { CreateProfileDto } from "../dto/create-profile.dto";
 import { ReorderProfilePhotosDto } from "../dto/reorder-profile-photos.dto";
+import { UpdatePreferencesDto } from "../dto/update-preferences.dto";
 import { UpdateProfileInterestsDto } from "../dto/update-profile-interests.dto";
 import { UpdateProfilePromptsDto } from "../dto/update-profile-prompts.dto";
 import { UpdateProfileDto } from "../dto/update-profile.dto";
 import { InterestService } from "../services/interest.service";
 import { PhotoService } from "../services/photo.service";
+import { PreferenceService } from "../services/preference.service";
 import { ProfileService } from "../services/profile.service";
 import { PromptService } from "../services/prompt.service";
 
@@ -44,6 +46,7 @@ export class ProfileController {
     private readonly photoService: PhotoService,
     private readonly interestService: InterestService,
     private readonly promptService: PromptService,
+    private readonly preferenceService: PreferenceService,
   ) {}
 
   @Get("me")
@@ -296,6 +299,59 @@ export class ProfileController {
     return {
       statusCode: HttpStatus.OK,
       message: "User prompt responses updated successfully",
+      data,
+    };
+  }
+
+  @Get("preferences")
+  @ApiOperation({
+    summary:
+      "Get authenticated user discovery preferences (or default fallback)",
+  })
+  @ApiResponse({
+    status: 200,
+    description:
+      "Returns user preferences or sensible defaults if none created yet.",
+  })
+  @ApiUnauthorizedResponse({
+    description: "Missing or invalid JWT token",
+  })
+  async getPreferences(@CurrentUser("id") userId: string) {
+    const data = await this.preferenceService.getPreferences(userId);
+    return {
+      statusCode: HttpStatus.OK,
+      message: "User preferences retrieved successfully",
+      data,
+    };
+  }
+
+  @Patch("preferences")
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: "Partially update authenticated user discovery preferences",
+  })
+  @ApiResponse({
+    status: 200,
+    description: "User discovery preferences updated successfully.",
+  })
+  @ApiBadRequestResponse({
+    description:
+      "Invalid age range (minAge > maxAge), negative distance, or duplicate enum choices",
+  })
+  @ApiNotFoundResponse({
+    description: "Profile not found for authenticated user",
+  })
+  @ApiUnauthorizedResponse({
+    description: "Missing or invalid JWT token",
+  })
+  async updatePreferences(
+    @CurrentUser("id") userId: string,
+    @Body() dto: UpdatePreferencesDto,
+  ) {
+    const data = await this.preferenceService.updatePreferences(userId, dto);
+    return {
+      statusCode: HttpStatus.OK,
+      message: "User preferences updated successfully",
       data,
     };
   }
