@@ -2,7 +2,7 @@
 
 ## Current Status
 
-✅ Phase 1 — Profile Database Schema Implemented & Verified.
+✅ Phase 1 — Profile Infrastructure Implemented & Verified.
 
 ---
 
@@ -27,13 +27,15 @@
 - Implemented **Authentication Infrastructure** in NestJS
 - Implemented **Onboarding Infrastructure** in NestJS
 - Designed **Profile Domain Architecture** in `docs/profile-domain-design.md`
-- Implemented **Profile Database Schema** in NestJS (`backend/prisma/schema.prisma`):
-  - Added enums: `Gender`, `RelationshipIntent`, `LifestyleChoice`, `VerificationStatus`, `ModerationStatus`
-  - Expanded `Profile` model with biographical attributes, coordinates, height, intent, lifestyle choices, and completion cache fields (`completionScore`, `isComplete`)
-  - Implemented models: `ProfilePhoto`, `VoiceIntro`, `Interest`, `ProfileInterest`, `Prompt`, `ProfilePrompt`, `Preference`, `ProfileVerification`
-  - Configured 1:1, 1:N, and N:M foreign key constraints, indexes (`@@index([latitude, longitude])`, `@@index([gender, intent])`), unique constraints, and cascade deletion rules (`onDelete: Cascade`)
-  - Formatted schema (`npx prisma format`), generated Prisma Client (`npx prisma generate`), and synced PostgreSQL database schema (`npx prisma db push`)
-  - Ran full regression testing verifying existing authentication and onboarding functionality (11 unit test suites, 55 unit tests, 14 E2E integration test scenarios across 2 suites)
+- Implemented **Profile Database Schema** in NestJS (`backend/prisma/schema.prisma`)
+- Implemented **Profile Infrastructure** in NestJS:
+  - Created `ProfileModule`, `ProfileService`, and `ProfileController` in `backend/src/modules/profile/`
+  - Registered `ProfileModule` in `AppModule` (`app.module.ts`)
+  - Implemented `ProfileService` with `getProfileByUserId` and `getProfileForCurrentUser` throwing `NotFoundException` (404) if missing
+  - Implemented `GET /api/v1/profile/me` endpoint protected by `JwtAuthGuard` and `@CurrentUser()` returning authenticated user's profile
+  - Added Swagger annotations with Bearer auth support (`@ApiBearerAuth('Bearer')`)
+  - Written unit test suites (`profile.service.spec.ts`, `profile.controller.spec.ts` — 13 suites, 61 unit tests total across all modules)
+  - Written E2E integration test suite (`test/profile.e2e-spec.ts` — 17 scenarios total across 3 suites) verifying authenticated access, 401 unauthenticated access, and 404 missing profile handling
 
 ---
 
@@ -45,7 +47,7 @@ None.
 
 ## Next Task
 
-Phase 1 — Profile Domain Implementation (Photos, Prompts, Interests, Preferences & Profile Service)
+Phase 1 — Logout Endpoint (`POST /api/v1/auth/logout`) & Session Revocation
 
 ---
 
@@ -57,7 +59,7 @@ None.
 
 ## Notes
 
-The Profile Database Schema is fully implemented and synced with PostgreSQL. Unit tests (11 suites, 55 tests) and E2E integration tests (14 test scenarios) pass cleanly without any regression.
+The Profile Infrastructure is fully implemented and verified. Unit tests (13 suites, 61 tests) and E2E integration tests (17 test scenarios across 3 suites) pass cleanly.
 
 All implementation follows:
 

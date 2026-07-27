@@ -2,116 +2,81 @@
 
 ## Feature
 
-Profile Database Schema
+Profile Infrastructure
 
 ---
 
 ## Goal
 
-Implement the Profile domain database schema based on the approved architecture document.
+Establish the foundational infrastructure for the Profile domain.
 
-This task is limited to database modeling only.
+This task creates the module, service, controller, repository interactions, and basic profile lifecycle without implementing profile editing or onboarding fields.
 
-No business logic, controllers, services, DTOs, or APIs should be implemented.
-
-The objective is to establish a clean, scalable database foundation for the Profile domain.
+The objective is to prepare the Profile domain for future feature slices.
 
 ---
 
 ## Scope
 
-Implement ONLY the database schema.
+Implement ONLY the infrastructure.
 
-### Profile
+### Module
 
-Create the Profile model.
+Create:
 
-Include only the fields approved in the architecture document.
+- ProfileModule
 
-Keep authentication data inside the existing User model.
+### Service
 
----
+Create:
 
-### ProfilePhoto
+- ProfileService
 
-Create the ProfilePhoto model.
+Responsibilities:
 
-Support:
+- Get current user's profile
+- Create empty profile when required
+- Lookup profile by userId
 
-- multiple photos
-- ordering
-- moderation status
-- blur hash
-
-Do not implement uploads.
+Do not implement profile editing.
 
 ---
 
-### Interest
+### Controller
 
-Create the Interest catalog model.
+Create:
 
-System-managed only.
+GET /api/v1/profile/me
 
----
+Returns the authenticated user's profile.
 
-### ProfileInterest
+If none exists, return 404.
 
-Create the junction table.
-
-Support many-to-many relationships.
+Do not auto-create.
 
 ---
 
-### Prompt
+### Authentication
 
-Create the Prompt catalog model.
+Protect every endpoint with:
 
-System-managed only.
-
----
-
-### ProfilePrompt
-
-Create the user's prompt response model.
-
-Do not implement prompt APIs.
+- JwtAuthGuard
+- @CurrentUser()
 
 ---
 
-### Preference
+### Swagger
 
-Create the Preference model.
-
-Keep discovery preferences separate from Profile.
+Document endpoints.
 
 ---
 
-### ProfileVerification
+### Tests
 
-Create the ProfileVerification model.
+Write:
 
-Do not implement verification logic.
-
----
-
-### Enums
-
-Implement the approved enums.
-
-Only include enums that are required for the schema.
-
----
-
-### Relationships
-
-Implement all foreign keys.
-
-Implement indexes.
-
-Implement unique constraints.
-
-Implement cascade behavior where appropriate.
+- Unit tests
+- E2E tests
 
 ---
 
@@ -119,31 +84,17 @@ Implement cascade behavior where appropriate.
 
 Do NOT implement:
 
-- Controllers
-- Services
-- DTOs
-- APIs
-- Validation
-- Profile completion engine
+- PATCH profile
+- Photos
+- Interests
+- Prompts
+- Preferences
+- Completion engine
 - File uploads
-- Voice intro uploads
-- Matching
+- Voice intro
+- Verification
 - Discovery
-- AI
-- Moderation logic
-- Background jobs
-
----
-
-## Requirements
-
-Generate a Prisma migration.
-
-Generate Prisma Client.
-
-Ensure schema formatting passes.
-
-Ensure migrations apply successfully.
+- Matching
 
 ---
 
@@ -151,25 +102,27 @@ Ensure migrations apply successfully.
 
 The task is complete only when:
 
-- Schema compiles
-- Prisma format passes
-- Prisma generate passes
-- Prisma migrate succeeds
-- Database reflects the new models
-- Existing authentication tables remain intact
-- Existing onboarding continues working
+- Profile module exists
+- Profile service exists
+- Profile controller exists
+- GET /profile/me works
+- 404 returned if profile missing
+- Authentication required
+- Swagger updated
+- Tests pass
+- Existing auth still passes
+- Existing onboarding still passes
 - Build passes
 - Lint passes
-- Existing unit tests pass
-- Existing E2E tests pass
 
 ---
 
 ## Deliverables
 
-- Updated schema.prisma
-- Prisma migration
-- Generated Prisma Client
+- ProfileModule
+- ProfileService
+- ProfileController
+- Tests
 - Updated project/PROGRESS.md
 
-No application code should be added.
+Do not implement functionality outside this scope.
