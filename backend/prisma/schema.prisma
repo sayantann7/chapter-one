@@ -1,0 +1,178 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id               String          @id @default(uuid())
+  email            String?         @unique
+  phoneNumber      String?         @unique
+  passwordHash     String?
+  isVerified       Boolean         @default(false)
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  profile          Profile?
+  sentIntroductions Introduction[] @relation("UserIntroductions")
+  receivedIntroductions Introduction[] @relation("PartnerIntroductions")
+  sentMessages     Message[]       @relation("SentMessages")
+  reportsSent      Report[]        @relation("Reporter")
+  reportsReceived  Report[]        @relation("ReportedUser")
+  blocksSent       Block[]         @relation("Blocker")
+  blocksReceived   Block[]         @relation("BlockedUser")
+  notifications    Notification[]
+  deviceTokens     DeviceToken[]
+
+  @@map("users")
+}
+
+model Profile {
+  id            String         @id @default(uuid())
+  userId        String         @unique
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  firstName     String
+  age           Int
+  gender        String
+  location      String
+  occupation    String?
+  bio           String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  photos        Photo[]
+  voiceIntro    VoiceIntro?
+  userInterests UserInterest[]
+
+  @@map("profiles")
+}
+
+model Photo {
+  id        String   @id @default(uuid())
+  profileId String
+  profile   Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  url       String
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@map("photos")
+}
+
+model VoiceIntro {
+  id        String   @id @default(uuid())
+  profileId String   @unique
+  profile   Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  url       String
+  duration  Int
+  createdAt DateTime @default(now())
+
+  @@map("voice_intros")
+}
+
+model Interest {
+  id            String         @id @default(uuid())
+  name          String         @unique
+  category      String?
+  userInterests UserInterest[]
+
+  @@map("interests")
+}
+
+model UserInterest {
+  id         String   @id @default(uuid())
+  profileId  String
+  profile    Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  interestId String
+  interest   Interest @relation(fields: [interestId], references: [id], onDelete: Cascade)
+
+  @@unique([profileId, interestId])
+  @@map("user_interests")
+}
+
+model Match {
+  id            String         @id @default(uuid())
+  user1Id       String
+  user2Id       String
+  score         Float          @default(0.0)
+  createdAt     DateTime       @default(now())
+
+  @@map("matches")
+}
+
+model Introduction {
+  id           String    @id @default(uuid())
+  userId       String
+  user         User      @relation("UserIntroductions", fields: [userId], references: [id], onDelete: Cascade)
+  partnerId    String
+  partner      User      @relation("PartnerIntroductions", fields: [partnerId], references: [id], onDelete: Cascade)
+  status       String    @default("PENDING") // PENDING, ACTIVE, COMPLETED, ENDED
+  unlockStage  Int       @default(0)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  messages     Message[]
+
+  @@map("introductions")
+}
+
+model Message {
+  id             String       @id @default(uuid())
+  introductionId String
+  introduction   Introduction @relation(fields: [introductionId], references: [id], onDelete: Cascade)
+  senderId       String
+  sender         User         @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
+  content        String
+  createdAt      DateTime     @default(now())
+
+  @@map("messages")
+}
+
+model Report {
+  id          String   @id @default(uuid())
+  reporterId  String
+  reporter    User     @relation("Reporter", fields: [reporterId], references: [id], onDelete: Cascade)
+  reportedId  String
+  reported    User     @relation("ReportedUser", fields: [reportedId], references: [id], onDelete: Cascade)
+  reason      String
+  status      String   @default("PENDING")
+  createdAt   DateTime @default(now())
+
+  @@map("reports")
+}
+
+model Block {
+  id          String   @id @default(uuid())
+  blockerId   String
+  blocker     User     @relation("Blocker", fields: [blockerId], references: [id], onDelete: Cascade)
+  blockedId   String
+  blocked     User     @relation("BlockedUser", fields: [blockedId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+
+  @@map("blocks")
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  body      String
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@map("notifications")
+}
+
+model DeviceToken {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  platform  String   // ios, android, web
+  createdAt DateTime @default(now())
+
+  @@map("device_tokens")
+}
