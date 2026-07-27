@@ -2,59 +2,91 @@
 
 ## Feature
 
-Profile Architecture Refactor
+Profile Prompts
 
 ---
 
 ## Goal
 
-Refactor the Profile module to improve maintainability before implementing the remaining profile features.
+Implement management of profile prompts and user responses.
 
-This is an internal architectural improvement.
+The Prompt catalog is system-managed.
 
-No external API behavior should change.
+Users may answer up to three prompts from the catalog.
 
 ---
 
 ## Scope
 
-### Service Split
+### Prompt Catalog
 
-Extract responsibilities into dedicated services:
+GET /api/v1/profile/prompts
 
-- ProfileService
-- PhotoService
-- InterestService
+Return all active prompts grouped by category.
 
-Each service should own only its corresponding business logic.
+Catalog is read-only.
 
 ---
 
-### Repository Layer
+### User Prompt Responses
 
-Introduce repositories:
+PUT /api/v1/profile/prompts
 
-- ProfileRepository
-- PhotoRepository
-- InterestRepository
+Replace the authenticated user's prompt responses.
 
-Move all Prisma access into repositories.
+Requirements:
 
-Services should no longer access Prisma directly.
+- minimum 1 response
+- maximum 3 responses
+- prompt IDs must exist
+- no duplicate prompt IDs
+- answer length: 5–300 characters
 
----
-
-### Dependency Injection
-
-Register repositories and services using NestJS dependency injection.
+Replace the entire set atomically.
 
 ---
 
-### Backward Compatibility
+### Validation
 
-Controllers should continue exposing the exact same API.
+Validate:
 
-No request or response contracts should change.
+- 1–3 responses
+- unique prompt IDs
+- valid prompt IDs
+- answer length
+
+---
+
+### Authentication
+
+Protect all endpoints with:
+
+- JwtAuthGuard
+- @CurrentUser()
+
+---
+
+### Swagger
+
+Document all endpoints.
+
+---
+
+### Tests
+
+Write:
+
+- unit tests
+- E2E tests
+
+Cover:
+
+- catalog retrieval
+- successful replacement
+- duplicate prompts
+- invalid prompt IDs
+- invalid answer lengths
+- unauthorized access
 
 ---
 
@@ -62,32 +94,31 @@ No request or response contracts should change.
 
 Do NOT implement:
 
-- prompts
-- preferences
+- AI prompt suggestions
+- voice prompt answers
 - completion engine
-- onboarding changes
 - matching
-- discovery
-- AI
+- embeddings
 
 ---
 
 ## Definition of Done
 
-- Prisma accessed only through repositories
-- Services have single responsibility
-- Controllers unchanged
-- All tests pass
-- Build passes
-- Lint passes
-- No API behavior changes
+- catalog endpoint works
+- replacement endpoint works
+- validation enforced
+- atomic replacement
+- tests pass
+- build passes
+- lint passes
 
 ---
 
 ## Deliverables
 
-- Repository classes
-- Refactored services
-- Updated dependency injection
-- Updated tests if required
+- DTOs
+- PromptService
+- PromptRepository
+- Controller updates
+- Tests
 - Updated project/PROGRESS.md

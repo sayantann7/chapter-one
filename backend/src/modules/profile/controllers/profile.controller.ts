@@ -27,10 +27,12 @@ import { CreateProfilePhotoDto } from "../dto/create-profile-photo.dto";
 import { CreateProfileDto } from "../dto/create-profile.dto";
 import { ReorderProfilePhotosDto } from "../dto/reorder-profile-photos.dto";
 import { UpdateProfileInterestsDto } from "../dto/update-profile-interests.dto";
+import { UpdateProfilePromptsDto } from "../dto/update-profile-prompts.dto";
 import { UpdateProfileDto } from "../dto/update-profile.dto";
 import { InterestService } from "../services/interest.service";
 import { PhotoService } from "../services/photo.service";
 import { ProfileService } from "../services/profile.service";
+import { PromptService } from "../services/prompt.service";
 
 @ApiTags("Profile")
 @Controller("profile")
@@ -41,6 +43,7 @@ export class ProfileController {
     private readonly profileService: ProfileService,
     private readonly photoService: PhotoService,
     private readonly interestService: InterestService,
+    private readonly promptService: PromptService,
   ) {}
 
   @Get("me")
@@ -241,6 +244,58 @@ export class ProfileController {
     return {
       statusCode: HttpStatus.OK,
       message: "User interests updated successfully",
+      data,
+    };
+  }
+
+  @Get("prompts")
+  @ApiOperation({
+    summary: "Get read-only system prompt catalog grouped by category",
+  })
+  @ApiResponse({
+    status: 200,
+    description: "Returns prompt catalog grouped by category.",
+  })
+  @ApiUnauthorizedResponse({
+    description: "Missing or invalid JWT token",
+  })
+  async getPromptsCatalog() {
+    const data = await this.promptService.getPromptsCatalog();
+    return {
+      statusCode: HttpStatus.OK,
+      message: "Prompt catalog retrieved successfully",
+      data,
+    };
+  }
+
+  @Put("prompts")
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary:
+      "Atomically replace authenticated user prompt responses (min 1, max 3)",
+  })
+  @ApiResponse({
+    status: 200,
+    description: "User prompt responses replaced successfully.",
+  })
+  @ApiBadRequestResponse({
+    description:
+      "Count bounds violation (1..3), duplicate IDs, invalid prompt ID, or invalid answer length (5..300 chars)",
+  })
+  @ApiNotFoundResponse({
+    description: "Profile not found for authenticated user",
+  })
+  @ApiUnauthorizedResponse({
+    description: "Missing or invalid JWT token",
+  })
+  async updateUserPrompts(
+    @CurrentUser("id") userId: string,
+    @Body() dto: UpdateProfilePromptsDto,
+  ) {
+    const data = await this.promptService.updateUserPrompts(userId, dto);
+    return {
+      statusCode: HttpStatus.OK,
+      message: "User prompt responses updated successfully",
       data,
     };
   }

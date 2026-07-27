@@ -2,7 +2,7 @@
 
 ## Current Status
 
-✅ Phase 1 — Profile Architecture Refactor Implemented & Verified.
+✅ Phase 1 — Profile Prompts Management Implemented & Verified.
 
 ---
 
@@ -32,13 +32,17 @@
 - Implemented **Basic Profile Management** in NestJS
 - Implemented **Profile Photos Management** in NestJS
 - Implemented **Profile Interests Management** in NestJS
-- Implemented **Profile Architecture Refactor** in NestJS:
-  - Created repository layer: `ProfileRepository`, `PhotoRepository`, `InterestRepository` in `backend/src/modules/profile/repositories/` encapsulating all Prisma database queries
-  - Split business logic into single-responsibility services: `ProfileService` (profile CRUD), `PhotoService` (gallery management), `InterestService` (interest catalog & selection) in `backend/src/modules/profile/services/`
-  - Refactored `ProfileController` to inject `ProfileService`, `PhotoService`, and `InterestService`, preserving 100% backward compatibility and exact REST contracts
-  - Updated `ProfileModule` registering all repositories and services
-  - Updated unit test suites (`profile.service.spec.ts`, `photo.service.spec.ts`, `interest.service.spec.ts`, `profile.controller.spec.ts` — 15 suites, 85 unit tests total across all modules)
-  - Verified E2E integration test suite (`test/profile.e2e-spec.ts` — 23 scenarios total across 3 suites) with zero API regressions
+- Implemented **Profile Architecture Refactor** in NestJS
+- Implemented **Profile Prompts Management** in NestJS:
+  - Created `PromptResponseDto` (validating `promptId` and `answer` length 5..300 chars) and `UpdateProfilePromptsDto` (enforcing `@ArrayMinSize(1)` and `@ArrayMaxSize(3)`)
+  - Created `PromptRepository` (`findAll`, `findManyByIds`, `replaceUserPrompts`) encapsulating Prisma prompt queries
+  - Created `PromptService` (`getPromptsCatalog`, `updateUserPrompts`) handling catalog grouping and atomic replacement
+  - Implemented `GET /api/v1/profile/prompts` endpoint protected by `JwtAuthGuard` and `@CurrentUser()` returning read-only catalog grouped by category
+  - Implemented `PUT /api/v1/profile/prompts` endpoint protected by `JwtAuthGuard` and `@CurrentUser()` for atomically replacing user prompt responses via database transaction
+  - Added Swagger documentation annotations across prompt endpoints with Bearer auth support (`@ApiBearerAuth('Bearer')`)
+  - Updated `ProfileModule` registering `PromptRepository` and `PromptService`
+  - Created unit test suite (`prompt.service.spec.ts`) and updated `profile.controller.spec.ts` (16 suites, 93 unit tests total across all modules)
+  - Updated E2E integration test suite (`test/profile.e2e-spec.ts` — 30 scenarios total across 3 suites) verifying prompt catalog listing, atomic prompt replacement, count bounds validation (1..3), duplicate ID rejection, invalid ID rejection, answer length validation (5..300), and 401 unauthenticated access
 
 ---
 
@@ -62,7 +66,7 @@ None.
 
 ## Notes
 
-Profile Architecture Refactor is fully implemented and verified. Unit tests (15 suites, 85 tests) and E2E integration tests (23 test scenarios across 3 suites) pass cleanly with zero regressions.
+Profile Prompts Management is fully implemented and verified. Unit tests (16 suites, 93 tests) and E2E integration tests (30 test scenarios across 3 suites) pass cleanly.
 
 All implementation follows:
 

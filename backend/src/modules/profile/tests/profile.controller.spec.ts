@@ -3,12 +3,14 @@ import { ProfileController } from "../controllers/profile.controller";
 import { InterestService } from "../services/interest.service";
 import { PhotoService } from "../services/photo.service";
 import { ProfileService } from "../services/profile.service";
+import { PromptService } from "../services/prompt.service";
 
 describe("ProfileController", () => {
   let controller: ProfileController;
   let profileService: ProfileService;
   let photoService: PhotoService;
   let interestService: InterestService;
+  let promptService: PromptService;
 
   const mockProfile = {
     id: "profile-uuid-123",
@@ -39,6 +41,19 @@ describe("ProfileController", () => {
     },
   ];
 
+  const mockPromptCatalog = {
+    Lifestyle: [{ id: "pr1", text: "Sunday text", category: "Lifestyle" }],
+  };
+
+  const mockUserPrompts = [
+    {
+      profileId: "profile-uuid-123",
+      promptId: "pr1",
+      answer: "Sample answer text",
+      displayOrder: 0,
+    },
+  ];
+
   const mockProfileService = {
     getProfileForCurrentUser: jest.fn().mockResolvedValue(mockProfile),
     createProfile: jest.fn().mockResolvedValue(mockProfile),
@@ -60,6 +75,11 @@ describe("ProfileController", () => {
     updateUserInterests: jest.fn().mockResolvedValue(mockUserInterests),
   };
 
+  const mockPromptService = {
+    getPromptsCatalog: jest.fn().mockResolvedValue(mockPromptCatalog),
+    updateUserPrompts: jest.fn().mockResolvedValue(mockUserPrompts),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [ProfileController],
@@ -67,6 +87,7 @@ describe("ProfileController", () => {
         { provide: ProfileService, useValue: mockProfileService },
         { provide: PhotoService, useValue: mockPhotoService },
         { provide: InterestService, useValue: mockInterestService },
+        { provide: PromptService, useValue: mockPromptService },
       ],
     }).compile();
 
@@ -74,6 +95,7 @@ describe("ProfileController", () => {
     profileService = module.get<ProfileService>(ProfileService);
     photoService = module.get<PhotoService>(PhotoService);
     interestService = module.get<InterestService>(InterestService);
+    promptService = module.get<PromptService>(PromptService);
   });
 
   it("should be defined", () => {
@@ -186,6 +208,34 @@ describe("ProfileController", () => {
       statusCode: 200,
       message: "User interests updated successfully",
       data: mockUserInterests,
+    });
+  });
+
+  it("should call promptService.getPromptsCatalog and return formatted response", async () => {
+    const res = await controller.getPromptsCatalog();
+
+    expect(promptService.getPromptsCatalog).toHaveBeenCalled();
+    expect(res).toEqual({
+      statusCode: 200,
+      message: "Prompt catalog retrieved successfully",
+      data: mockPromptCatalog,
+    });
+  });
+
+  it("should call promptService.updateUserPrompts and return formatted response", async () => {
+    const dto = {
+      prompts: [{ promptId: "pr1", answer: "Sample answer text" }],
+    };
+    const res = await controller.updateUserPrompts("user-uuid-123", dto);
+
+    expect(promptService.updateUserPrompts).toHaveBeenCalledWith(
+      "user-uuid-123",
+      dto,
+    );
+    expect(res).toEqual({
+      statusCode: 200,
+      message: "User prompt responses updated successfully",
+      data: mockUserPrompts,
     });
   });
 });

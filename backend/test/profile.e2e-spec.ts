@@ -10,8 +10,8 @@ describe("ProfileController (e2e)", () => {
   let prisma: PrismaService;
   let redis: RedisService;
 
-  const testEmail1 = `e2e_interest_test1_${Date.now()}@example.com`;
-  const testEmail2 = `e2e_interest_test2_${Date.now()}@example.com`;
+  const testEmail1 = `e2e_prompt_test1_${Date.now()}@example.com`;
+  const testEmail2 = `e2e_prompt_test2_${Date.now()}@example.com`;
   const testPassword = "SecurePassword123!";
 
   let userId1: string;
@@ -20,6 +20,7 @@ describe("ProfileController (e2e)", () => {
   let token2: string;
 
   let catalogInterestIds: string[] = [];
+  let catalogPromptIds: string[] = [];
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -57,6 +58,21 @@ describe("ProfileController (e2e)", () => {
       dbInterests = await prisma.interest.findMany();
     }
     catalogInterestIds = dbInterests.map((i) => i.id);
+
+    // Seed Prompts catalog if empty
+    let dbPrompts = await prisma.prompt.findMany();
+    if (dbPrompts.length < 3) {
+      await prisma.prompt.createMany({
+        data: [
+          { text: "A perfect Sunday is...", category: "Lifestyle" },
+          { text: "The key to my heart is...", category: "Romance" },
+          { text: "Together we could...", category: "Adventure" },
+        ],
+        skipDuplicates: true,
+      });
+      dbPrompts = await prisma.prompt.findMany();
+    }
+    catalogPromptIds = dbPrompts.map((p) => p.id);
 
     // Setup user 1: register -> verify -> login -> create profile
     const regRes1 = await request(app.getHttpServer())
@@ -203,6 +219,98 @@ describe("ProfileController (e2e)", () => {
 
       expect(res.body).toHaveProperty("statusCode", 200);
       expect(res.body.data).toHaveLength(3);
+    });
+  });
+
+  describe("GET /api/v1/profile/prompts", () => {
+    it("should return 401 Unauthorized for unauthenticated request", async () => {
+      await request(app.getHttpServer())
+        .get("/api/v1/profile/prompts")
+        .expect(401);
+    });
+
+    it("should return prompt catalog grouped by category (200 OK)", async () => {
+      const res = await request(app.getHttpServer())
+        .get("/api/v1/profile/prompts")
+        .set("Authorization", `Bearer ${token1}`)
+        .expect(200);
+
+      expect(res.body).toHaveProperty("statusCode", 200);
+      expect(typeof res.body.data).toBe("object");
+    });
+  });
+
+  describe("PUT /api/v1/profile/prompts", () => {
+    it("should return 401 Unauthorized for unauthenticated request", async () => {
+      await request(app.getHttpServer())
+        .put("/api/v1/profile/prompts")
+        .send({
+          prompts: [
+            { promptId: catalogPromptIds[0], answer: "Valid long answer text" },
+          ],
+        })
+        .expect(401);
+    });
+
+    it("should return 400 Bad Request for answer shorter than 5 chars", async () => {
+      await request(app.getHttpServer())
+        .put("/api/v1/profile/prompts")
+        .set("Authorization", `Bearer ${token1}`)
+        .send({ prompts: [{ promptId: catalogPromptIds[0], answer: "Hey" }] })
+        .expect(400);
+    });
+
+    it("should return 400 Bad Request for duplicate prompt IDs", async () => {
+      await request(app.getHttpServer())
+        .put("/api/v1/profile/prompts")
+        .set("Authorization", `Bearer ${token1}`)
+        .send({
+          prompts: [
+            { promptId: catalogPromptIds[0], answer: "Answer number one text" },
+            { promptId: catalogPromptIds[0], answer: "Answer number two text" },
+          ],
+        })
+        .expect(400);
+    });
+
+    it("should return 400 Bad Request for non-existent prompt ID", async () => {
+      await request(app.getHttpServer())
+        .put("/api/v1/profile/prompts")
+        .set("Authorization", `Bearer ${token1}`)
+        .send({
+          prompts: [
+            {
+              promptId: "non-existent-prompt-uuid",
+              answer: "Valid answer text sample",
+            },
+          ],
+        })
+        .expect(400);
+    });
+
+    it("should replace user prompt responses atomically (200 OK)", async () => {
+      const payload = {
+        prompts: [
+          {
+            promptId: catalogPromptIds[0],
+            answer: "A cup of fresh coffee and a morning walk in the park.",
+          },
+          {
+            promptId: catalogPromptIds[1],
+            answer: "Honesty, empathy, and a shared sense of humor.",
+          },
+        ],
+      };
+
+      const res = await request(app.getHttpServer())
+        .put("/api/v1/profile/prompts")
+        .set("Authorization", `Bearer ${token1}`)
+        .send(payload)
+        .expect(200);
+
+      expect(res.body).toHaveProperty("statusCode", 200);
+      expect(res.body.data).toHaveLength(2);
+      expect(res.body.data[0]).toHaveProperty("promptId", catalogPromptIds[0]);
     });
   });
 });
