@@ -26,6 +26,7 @@ import { JwtAuthGuard } from "../../auth/guards/jwt-auth.guard";
 import { CreateProfilePhotoDto } from "../dto/create-profile-photo.dto";
 import { CreateProfileDto } from "../dto/create-profile.dto";
 import { ReorderProfilePhotosDto } from "../dto/reorder-profile-photos.dto";
+import { UpdateProfileInterestsDto } from "../dto/update-profile-interests.dto";
 import { UpdateProfileDto } from "../dto/update-profile.dto";
 import { ProfileService } from "../services/profile.service";
 
@@ -182,6 +183,58 @@ export class ProfileController {
     return {
       statusCode: HttpStatus.OK,
       message: "Photos reordered successfully",
+      data,
+    };
+  }
+
+  @Get("interests")
+  @ApiOperation({
+    summary: "Get read-only system interest catalog grouped by category",
+  })
+  @ApiResponse({
+    status: 200,
+    description: "Returns interest catalog grouped by category.",
+  })
+  @ApiUnauthorizedResponse({
+    description: "Missing or invalid JWT token",
+  })
+  async getInterestsCatalog() {
+    const data = await this.profileService.getInterestsCatalog();
+    return {
+      statusCode: HttpStatus.OK,
+      message: "Interest catalog retrieved successfully",
+      data,
+    };
+  }
+
+  @Put("interests")
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary:
+      "Atomically replace authenticated user interest selection (min 3, max 10)",
+  })
+  @ApiResponse({
+    status: 200,
+    description: "User interest selection replaced successfully.",
+  })
+  @ApiBadRequestResponse({
+    description:
+      "Count bounds violation (must be 3..10), duplicate IDs, or invalid interest ID",
+  })
+  @ApiNotFoundResponse({
+    description: "Profile not found for authenticated user",
+  })
+  @ApiUnauthorizedResponse({
+    description: "Missing or invalid JWT token",
+  })
+  async updateUserInterests(
+    @CurrentUser("id") userId: string,
+    @Body() dto: UpdateProfileInterestsDto,
+  ) {
+    const data = await this.profileService.updateUserInterests(userId, dto);
+    return {
+      statusCode: HttpStatus.OK,
+      message: "User interests updated successfully",
       data,
     };
   }

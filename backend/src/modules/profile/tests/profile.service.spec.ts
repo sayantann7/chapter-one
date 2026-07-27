@@ -26,6 +26,15 @@ describe("ProfileService", () => {
       delete: jest.fn(),
       update: jest.fn(),
     },
+    interest: {
+      findMany: jest.fn(),
+      createMany: jest.fn(),
+    },
+    profileInterest: {
+      deleteMany: jest.fn(),
+      createMany: jest.fn(),
+      findMany: jest.fn(),
+    },
   };
 
   beforeEach(async () => {
@@ -289,6 +298,113 @@ describe("ProfileService", () => {
       await expect(service.reorderPhotos("user-uuid-123", dto)).rejects.toThrow(
         BadRequestException,
       );
+    });
+  });
+
+  describe("getInterestsCatalog", () => {
+    it("should return catalog grouped by category", async () => {
+      mockPrismaService.interest.findMany.mockResolvedValue([
+        { id: "i1", name: "Hiking", category: "Outdoors" },
+        { id: "i2", name: "Camping", category: "Outdoors" },
+        { id: "i3", name: "Coding", category: "Tech" },
+      ]);
+
+      const res = await service.getInterestsCatalog();
+
+      expect(res).toEqual({
+        Outdoors: [
+          { id: "i1", name: "Hiking", category: "Outdoors" },
+          { id: "i2", name: "Camping", category: "Outdoors" },
+        ],
+        Tech: [{ id: "i3", name: "Coding", category: "Tech" }],
+      });
+    });
+  });
+
+  describe("updateUserInterests", () => {
+    it("should replace user interests atomically when valid", async () => {
+      mockPrismaService.profile.findUnique.mockResolvedValue({
+        id: "profile-uuid-123",
+        userId: "user-uuid-123",
+      });
+      mockPrismaService.interest.findMany.mockResolvedValue([
+        { id: "i1", name: "Hiking" },
+        { id: "i2", name: "Camping" },
+        { id: "i3", name: "Coding" },
+      ]);
+      const mockResult = [
+        {
+          profileId: "profile-uuid-123",
+          interestId: "i1",
+          interest: { id: "i1", name: "Hiking" },
+        },
+        {
+          profileId: "profile-uuid-123",
+          interestId: "i2",
+          interest: { id: "i2", name: "Camping" },
+        },
+        {
+          profileId: "profile-uuid-123",
+          interestId: "i3",
+          interest: { id: "i3", name: "Coding" },
+        },
+      ];
+      mockPrismaService.profileInterest.findMany.mockResolvedValue(mockResult);
+
+      const dto = { interestIds: ["i1", "i2", "i3"] };
+      const res = await service.updateUserInterests("user-uuid-123", dto);
+
+      expect(prisma.profileInterest.deleteMany).toHaveBeenCalledWith({
+        where: { profileId: "profile-uuid-123" },
+      });
+      expect(prisma.profileInterest.createMany).toHaveBeenCalledWith({
+        data: [
+          { profileId: "profile-uuid-123", interestId: "i1" },
+          { profileId: "profile-uuid-123", interestId: "i2" },
+          { profileId: "profile-uuid-123", interestId: "i3" },
+        ],
+      });
+      expect(res).toEqual(mockResult);
+    });
+
+    it("should throw BadRequestException for duplicate interest IDs", async () => {
+      mockPrismaService.profile.findUnique.mockResolvedValue({
+        id: "profile-uuid-123",
+        userId: "user-uuid-123",
+      });
+
+      const dto = { interestIds: ["i1", "i1", "i2"] };
+      await expect(
+        service.updateUserInterests("user-uuid-123", dto),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it("should throw BadRequestException if selection contains less than 3 items", async () => {
+      mockPrismaService.profile.findUnique.mockResolvedValue({
+        id: "profile-uuid-123",
+        userId: "user-uuid-123",
+      });
+
+      const dto = { interestIds: ["i1", "i2"] };
+      await expect(
+        service.updateUserInterests("user-uuid-123", dto),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it("should throw BadRequestException if one or more interest IDs do not exist in catalog", async () => {
+      mockPrismaService.profile.findUnique.mockResolvedValue({
+        id: "profile-uuid-123",
+        userId: "user-uuid-123",
+      });
+      mockPrismaService.interest.findMany.mockResolvedValue([
+        { id: "i1" },
+        { id: "i2" },
+      ]); // missing i3
+
+      const dto = { interestIds: ["i1", "i2", "non-existent-id"] };
+      await expect(
+        service.updateUserInterests("user-uuid-123", dto),
+      ).rejects.toThrow(BadRequestException);
     });
   });
 });

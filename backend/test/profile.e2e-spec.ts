@@ -10,14 +10,16 @@ describe("ProfileController (e2e)", () => {
   let prisma: PrismaService;
   let redis: RedisService;
 
-  const testEmail1 = `e2e_photo_test1_${Date.now()}@example.com`;
-  const testEmail2 = `e2e_photo_test2_${Date.now()}@example.com`;
+  const testEmail1 = `e2e_interest_test1_${Date.now()}@example.com`;
+  const testEmail2 = `e2e_interest_test2_${Date.now()}@example.com`;
   const testPassword = "SecurePassword123!";
 
   let userId1: string;
   let userId2: string;
   let token1: string;
   let token2: string;
+
+  let catalogInterestIds: string[] = [];
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -38,6 +40,23 @@ describe("ProfileController (e2e)", () => {
 
     prisma = app.get<PrismaService>(PrismaService);
     redis = app.get<RedisService>(RedisService);
+
+    // Seed Interests catalog if empty
+    let dbInterests = await prisma.interest.findMany();
+    if (dbInterests.length < 5) {
+      await prisma.interest.createMany({
+        data: [
+          { name: "Hiking", category: "Outdoors" },
+          { name: "Camping", category: "Outdoors" },
+          { name: "Coding", category: "Tech" },
+          { name: "Photography", category: "Arts" },
+          { name: "Cooking", category: "Culinary" },
+        ],
+        skipDuplicates: true,
+      });
+      dbInterests = await prisma.interest.findMany();
+    }
+    catalogInterestIds = dbInterests.map((i) => i.id);
 
     // Setup user 1: register -> verify -> login -> create profile
     const regRes1 = await request(app.getHttpServer())
@@ -111,112 +130,79 @@ describe("ProfileController (e2e)", () => {
     });
   });
 
-  describe("POST /api/v1/profile/photos", () => {
+  describe("GET /api/v1/profile/interests", () => {
     it("should return 401 Unauthorized for unauthenticated request", async () => {
       await request(app.getHttpServer())
-        .post("/api/v1/profile/photos")
-        .send({ url: "https://images.com/p1.jpg" })
+        .get("/api/v1/profile/interests")
         .expect(401);
     });
 
-    it("should return 400 Bad Request for invalid photo URL", async () => {
-      await request(app.getHttpServer())
-        .post("/api/v1/profile/photos")
-        .set("Authorization", `Bearer ${token1}`)
-        .send({ url: "not-a-valid-url" })
-        .expect(400);
-    });
-
-    it("should add photos and auto-assign displayOrder (0..5)", async () => {
-      for (let i = 0; i < 6; i++) {
-        const res = await request(app.getHttpServer())
-          .post("/api/v1/profile/photos")
-          .set("Authorization", `Bearer ${token1}`)
-          .send({ url: `https://images.com/photo-${i + 1}.jpg` })
-          .expect(201);
-
-        expect(res.body.data).toHaveProperty("displayOrder", i);
-      }
-    });
-
-    it("should return 400 Bad Request when adding 7th photo (max 6 limit)", async () => {
+    it("should return interest catalog grouped by category (200 OK)", async () => {
       const res = await request(app.getHttpServer())
-        .post("/api/v1/profile/photos")
+        .get("/api/v1/profile/interests")
         .set("Authorization", `Bearer ${token1}`)
-        .send({ url: "https://images.com/photo-7.jpg" })
-        .expect(400);
+        .expect(200);
 
-      expect(res.body.message).toContain("Maximum 6 photos allowed");
+      expect(res.body).toHaveProperty("statusCode", 200);
+      expect(typeof res.body.data).toBe("object");
     });
   });
 
-  describe("PUT /api/v1/profile/photos/reorder", () => {
+  describe("PUT /api/v1/profile/interests", () => {
     it("should return 401 Unauthorized for unauthenticated request", async () => {
       await request(app.getHttpServer())
-        .put("/api/v1/profile/photos/reorder")
-        .send({ photoIds: ["some-id"] })
+        .put("/api/v1/profile/interests")
+        .send({ interestIds: catalogInterestIds.slice(0, 3) })
         .expect(401);
     });
 
-    it("should reorder photos successfully (200 OK)", async () => {
-      const profileRes = await request(app.getHttpServer())
-        .get("/api/v1/profile/me")
+    it("should return 400 Bad Request for too few selections (< 3)", async () => {
+      await request(app.getHttpServer())
+        .put("/api/v1/profile/interests")
         .set("Authorization", `Bearer ${token1}`)
-        .expect(200);
+        .send({ interestIds: catalogInterestIds.slice(0, 2) })
+        .expect(400);
+    });
 
-      const photos = profileRes.body.data.photos;
-      const reversedIds = photos.map((p: any) => p.id).reverse();
+    it("should return 400 Bad Request for duplicate interest IDs", async () => {
+      await request(app.getHttpServer())
+        .put("/api/v1/profile/interests")
+        .set("Authorization", `Bearer ${token1}`)
+        .send({
+          interestIds: [
+            catalogInterestIds[0],
+            catalogInterestIds[0],
+            catalogInterestIds[1],
+          ],
+        })
+        .expect(400);
+    });
+
+    it("should return 400 Bad Request for invalid non-existent interest ID", async () => {
+      await request(app.getHttpServer())
+        .put("/api/v1/profile/interests")
+        .set("Authorization", `Bearer ${token1}`)
+        .send({
+          interestIds: [
+            catalogInterestIds[0],
+            catalogInterestIds[1],
+            "non-existent-interest-uuid",
+          ],
+        })
+        .expect(400);
+    });
+
+    it("should update user interests atomically (200 OK)", async () => {
+      const selectedIds = catalogInterestIds.slice(0, 3);
 
       const res = await request(app.getHttpServer())
-        .put("/api/v1/profile/photos/reorder")
+        .put("/api/v1/profile/interests")
         .set("Authorization", `Bearer ${token1}`)
-        .send({ photoIds: reversedIds })
+        .send({ interestIds: selectedIds })
         .expect(200);
 
-      expect(res.body.data[0]).toHaveProperty("id", reversedIds[0]);
-      expect(res.body.data[0]).toHaveProperty("displayOrder", 0);
-    });
-  });
-
-  describe("DELETE /api/v1/profile/photos/:photoId", () => {
-    let photoToDeleteId: string;
-
-    it("should return 401 Unauthorized for unauthenticated request", async () => {
-      await request(app.getHttpServer())
-        .delete("/api/v1/profile/photos/fake-id")
-        .expect(401);
-    });
-
-    it("should return 404 Not Found when trying to delete user 1 photo with user 2 token", async () => {
-      const profileRes = await request(app.getHttpServer())
-        .get("/api/v1/profile/me")
-        .set("Authorization", `Bearer ${token1}`)
-        .expect(200);
-
-      photoToDeleteId = profileRes.body.data.photos[0].id;
-
-      await request(app.getHttpServer())
-        .delete(`/api/v1/profile/photos/${photoToDeleteId}`)
-        .set("Authorization", `Bearer ${token2}`)
-        .expect(404);
-    });
-
-    it("should delete photo successfully and reorder remaining photos (0..4)", async () => {
-      await request(app.getHttpServer())
-        .delete(`/api/v1/profile/photos/${photoToDeleteId}`)
-        .set("Authorization", `Bearer ${token1}`)
-        .expect(200);
-
-      const profileRes = await request(app.getHttpServer())
-        .get("/api/v1/profile/me")
-        .set("Authorization", `Bearer ${token1}`)
-        .expect(200);
-
-      const remainingPhotos = profileRes.body.data.photos;
-      expect(remainingPhotos).toHaveLength(5);
-      remainingPhotos.forEach((p: any, idx: number) => {
-        expect(p.displayOrder).toBe(idx);
-      });
+      expect(res.body).toHaveProperty("statusCode", 200);
+      expect(res.body.data).toHaveLength(3);
     });
   });
 });

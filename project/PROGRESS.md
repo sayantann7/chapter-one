@@ -2,7 +2,7 @@
 
 ## Current Status
 
-✅ Phase 1 — Profile Photos Management Implemented & Verified.
+✅ Phase 1 — Profile Interests Management Implemented & Verified.
 
 ---
 
@@ -30,14 +30,14 @@
 - Implemented **Profile Database Schema** in NestJS (`backend/prisma/schema.prisma`)
 - Implemented **Profile Infrastructure** in NestJS
 - Implemented **Basic Profile Management** in NestJS
-- Implemented **Profile Photos Management** in NestJS:
-  - Created `CreateProfilePhotoDto` (validating photo URL, thumbnailUrl, blurHash) and `ReorderProfilePhotosDto` (validating photo ID array)
-  - Implemented `POST /api/v1/profile/photos` endpoint protected by `JwtAuthGuard` and `@CurrentUser()` for adding a photo (auto displayOrder, max 6 photo limit enforcement returning `400 Bad Request`)
-  - Implemented `DELETE /api/v1/profile/photos/:photoId` endpoint protected by `JwtAuthGuard` and `@CurrentUser()` for deleting a photo (validating ownership, reordering remaining photos `0..N-1` via database transaction)
-  - Implemented `PUT /api/v1/profile/photos/reorder` endpoint protected by `JwtAuthGuard` and `@CurrentUser()` for reordering gallery photos (validating ownership and ID count)
-  - Added Swagger documentation annotations across photo endpoints with Bearer auth support (`@ApiBearerAuth('Bearer')`)
-  - Updated unit test suites (`profile.service.spec.ts`, `profile.controller.spec.ts` — 13 suites, 76 unit tests total across all modules)
-  - Updated E2E integration test suite (`test/profile.e2e-spec.ts` — 25 scenarios total across 3 suites) verifying photo addition, max 6 photo limit enforcement, photo deletion & reordering, photo reorder endpoint, ownership validation, and 401 unauthenticated access
+- Implemented **Profile Photos Management** in NestJS
+- Implemented **Profile Interests Management** in NestJS:
+  - Created `UpdateProfileInterestsDto` (enforcing `@ArrayMinSize(3)`, `@ArrayMaxSize(10)`, and `@ArrayUnique()`)
+  - Implemented `GET /api/v1/profile/interests` endpoint protected by `JwtAuthGuard` and `@CurrentUser()` returning read-only catalog grouped by category
+  - Implemented `PUT /api/v1/profile/interests` endpoint protected by `JwtAuthGuard` and `@CurrentUser()` for atomically replacing user interest selection (validating interest ID existence and replacing rows via database transaction)
+  - Added Swagger documentation annotations across interest endpoints with Bearer auth support (`@ApiBearerAuth('Bearer')`)
+  - Updated unit test suites (`profile.service.spec.ts`, `profile.controller.spec.ts` — 13 suites, 83 unit tests total across all modules)
+  - Updated E2E integration test suite (`test/profile.e2e-spec.ts` — 23 scenarios total across 3 suites) verifying catalog listing, atomic interest replacement, count bounds validation (too few/too many), duplicate ID rejection, invalid ID rejection, and 401 unauthenticated access
 
 ---
 
@@ -61,7 +61,7 @@ None.
 
 ## Notes
 
-Profile Photos Management is fully implemented and verified. Unit tests (13 suites, 76 tests) and E2E integration tests (25 test scenarios across 3 suites) pass cleanly.
+Profile Interests Management is fully implemented and verified. Unit tests (13 suites, 83 tests) and E2E integration tests (23 test scenarios across 3 suites) pass cleanly.
 
 All implementation follows:
 

@@ -2,75 +2,62 @@
 
 ## Feature
 
-Profile Photos
+Profile Interests
 
 ---
 
 ## Goal
 
-Implement profile photo management.
+Implement user interest management using the existing Interest catalog and ProfileInterest junction table.
 
-This feature allows authenticated users to manage their profile photo gallery.
+The Interest catalog is system-managed.
 
-File upload implementation is NOT part of this task.
-
-Assume image URLs already exist.
+Users may only select interests from the catalog.
 
 ---
 
 ## Scope
 
-### Create Photo
+### Catalog
 
-POST /api/v1/profile/photos
+GET /api/v1/profile/interests
 
-Body:
+Return all active interests grouped by category.
 
-- url
-- thumbnailUrl (optional)
-- blurHash (optional)
-
-Assign displayOrder automatically.
-
-Reject more than six photos.
+Catalog is read-only.
 
 ---
 
-### Delete Photo
+### User Interests
 
-DELETE /api/v1/profile/photos/:photoId
+PUT /api/v1/profile/interests
 
-Delete only photos owned by the authenticated user.
+Replace the authenticated user's selected interests.
 
-Reorder remaining photos.
+Requirements:
 
----
+- minimum 3 interests
+- maximum 10 interests
+- IDs must exist
+- no duplicates
 
-### Reorder Photos
-
-PUT /api/v1/profile/photos/reorder
-
-Accept ordered list of photo IDs.
-
-Validate ownership.
-
-Update displayOrder.
+Replace the entire selection atomically.
 
 ---
 
 ### Validation
 
-Maximum:
+Enforce:
 
-- 6 photos
-
-Minimum validation will be added later by the completion engine.
+- 3–10 selections
+- unique IDs
+- valid Interest IDs
 
 ---
 
 ### Authentication
 
-Use:
+Protect every endpoint using:
 
 - JwtAuthGuard
 - @CurrentUser()
@@ -79,24 +66,26 @@ Use:
 
 ### Swagger
 
-Document all endpoints.
+Document every endpoint.
 
 ---
 
 ### Tests
 
-Unit tests.
+Write:
 
-E2E tests.
+- unit tests
+- E2E tests
 
 Cover:
 
-- upload metadata
-- delete
-- reorder
+- list catalog
+- update interests
+- invalid IDs
+- duplicate IDs
+- too few
+- too many
 - unauthorized access
-- ownership validation
-- max photo limit
 
 ---
 
@@ -104,24 +93,21 @@ Cover:
 
 Do NOT implement:
 
-- multipart uploads
-- S3
-- Cloudflare R2
-- image resizing
-- moderation
-- AI
+- recommendations
+- matching
+- embeddings
 - completion engine
-- blur generation
+- AI
+- discovery ranking
 
 ---
 
 ## Definition of Done
 
-- create photo works
-- delete works
-- reorder works
-- max 6 enforced
-- ownership enforced
+- catalog endpoint works
+- update endpoint works
+- validation enforced
+- atomic replacement
 - tests pass
 - build passes
 - lint passes
