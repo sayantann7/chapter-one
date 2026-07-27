@@ -12,6 +12,7 @@ enum UserStatus {
   PENDING_ONBOARDING
   PENDING_VERIFICATION
   VERIFIED
+  ACTIVE
   SUSPENDED
   DEACTIVATED
 }
@@ -22,115 +23,253 @@ enum Role {
   MODERATOR
 }
 
-model User {
-  id               String       @id @default(uuid())
-  email            String?      @unique
-  phoneNumber      String?      @unique
-  passwordHash     String?
-  status           UserStatus   @default(UNVERIFIED)
-  role             Role         @default(USER)
-  isVerified       Boolean      @default(false)
-  createdAt        DateTime     @default(now())
-  updatedAt        DateTime     @updatedAt
+enum Gender {
+  MALE
+  FEMALE
+  NON_BINARY
+  OTHER
+}
 
-  profile          Profile?
-  sentIntroductions Introduction[] @relation("UserIntroductions")
-  receivedIntroductions Introduction[] @relation("PartnerIntroductions")
-  sentMessages     Message[]       @relation("SentMessages")
-  reportsSent      Report[]        @relation("Reporter")
-  reportsReceived  Report[]        @relation("ReportedUser")
-  blocksSent       Block[]         @relation("Blocker")
-  blocksReceived   Block[]         @relation("BlockedUser")
-  notifications    Notification[]
-  deviceTokens     DeviceToken[]
+enum RelationshipIntent {
+  LONG_TERM
+  LONG_TERM_OPEN_TO_SHORT
+  SHORT_TERM_OPEN_TO_LONG
+  SHORT_TERM
+  NEW_FRIENDS
+  NOT_SURE_YET
+}
+
+enum LifestyleChoice {
+  NEVER
+  SOMETIMES
+  FREQUENTLY
+  PREFER_NOT_TO_SAY
+}
+
+enum VerificationStatus {
+  NOT_SUBMITTED
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+enum ModerationStatus {
+  PENDING
+  APPROVED
+  FLAGGED
+  REJECTED
+}
+
+model User {
+  id           String     @id @default(uuid())
+  email        String?    @unique
+  phoneNumber  String?    @unique
+  passwordHash String?
+  status       UserStatus @default(UNVERIFIED)
+  role         Role       @default(USER)
+  isVerified   Boolean    @default(false)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  profile               Profile?
+  preference            Preference?
+  verification          ProfileVerification?
+  sentIntroductions     Introduction[]       @relation("UserIntroductions")
+  receivedIntroductions Introduction[]       @relation("PartnerIntroductions")
+  sentMessages          Message[]            @relation("SentMessages")
+  reportsSent           Report[]             @relation("Reporter")
+  reportsReceived       Report[]             @relation("ReportedUser")
+  blocksSent            Block[]              @relation("Blocker")
+  blocksReceived        Block[]              @relation("BlockedUser")
+  notifications         Notification[]
+  deviceTokens          DeviceToken[]
 
   @@map("users")
 }
 
 model Profile {
-  id            String         @id @default(uuid())
-  userId        String         @unique
-  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  firstName     String
-  age           Int
-  gender        String
-  location      String
-  occupation    String?
-  bio           String?
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
+  id           String             @id @default(uuid())
+  userId       String             @unique @map("user_id")
+  user         User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  firstName    String             @map("first_name")
+  birthdate    DateTime?          @map("birthdate")
+  gender       Gender?
+  pronouns     String?
+  heightCm     Int?               @map("height_cm")
+  locationName String?            @map("location_name")
+  latitude     Float?
+  longitude    Float?
+  occupation   String?
+  company      String?
+  education    String?
+  bio          String?            @db.VarChar(500)
+  intent       RelationshipIntent @default(NOT_SURE_YET)
 
-  photos        Photo[]
+  drinking      LifestyleChoice @default(PREFER_NOT_TO_SAY)
+  smoking       LifestyleChoice @default(PREFER_NOT_TO_SAY)
+  workout       LifestyleChoice @default(PREFER_NOT_TO_SAY)
+  hasChildren   Boolean?        @map("has_children")
+  wantsChildren Boolean?        @map("wants_children")
+  religion      String?
+
+  completionScore Int     @default(0) @map("completion_score")
+  isComplete      Boolean @default(false) @map("is_complete")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  photos        ProfilePhoto[]
   voiceIntro    VoiceIntro?
-  userInterests UserInterest[]
+  userInterests ProfileInterest[]
+  prompts       ProfilePrompt[]
 
+  @@index([latitude, longitude])
+  @@index([gender, intent])
   @@map("profiles")
 }
 
-model Photo {
-  id        String   @id @default(uuid())
-  profileId String
-  profile   Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
-  url       String
-  order     Int      @default(0)
-  createdAt DateTime @default(now())
+model ProfilePhoto {
+  id               String           @id @default(uuid())
+  profileId        String           @map("profile_id")
+  profile          Profile          @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  url              String
+  thumbnailUrl     String?          @map("thumbnail_url")
+  displayOrder     Int              @default(0) @map("display_order")
+  moderationStatus ModerationStatus @default(PENDING) @map("moderation_status")
+  blurHash         String?          @map("blur_hash")
 
-  @@map("photos")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([profileId, displayOrder])
+  @@index([profileId])
+  @@map("profile_photos")
 }
 
 model VoiceIntro {
-  id        String   @id @default(uuid())
-  profileId String   @unique
-  profile   Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
-  url       String
-  duration  Int
-  createdAt DateTime @default(now())
+  id               String           @id @default(uuid())
+  profileId        String           @unique @map("profile_id")
+  profile          Profile          @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  url              String
+  durationSeconds  Int              @map("duration_seconds")
+  waveform         Json?
+  moderationStatus ModerationStatus @default(PENDING) @map("moderation_status")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   @@map("voice_intros")
 }
 
 model Interest {
-  id            String         @id @default(uuid())
-  name          String         @unique
-  category      String?
-  userInterests UserInterest[]
+  id       String  @id @default(uuid())
+  name     String  @unique
+  category String?
+  iconKey  String? @map("icon_key")
 
+  userInterests ProfileInterest[]
+
+  @@index([category])
   @@map("interests")
 }
 
-model UserInterest {
+model ProfileInterest {
   id         String   @id @default(uuid())
-  profileId  String
+  profileId  String   @map("profile_id")
   profile    Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
-  interestId String
+  interestId String   @map("interest_id")
   interest   Interest @relation(fields: [interestId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("created_at")
 
   @@unique([profileId, interestId])
   @@map("user_interests")
 }
 
+model Prompt {
+  id       String  @id @default(uuid())
+  text     String  @unique
+  category String  @default("General")
+  isActive Boolean @default(true) @map("is_active")
+
+  userPrompts ProfilePrompt[]
+
+  @@map("prompts")
+}
+
+model ProfilePrompt {
+  id        String  @id @default(uuid())
+  profileId String  @map("profile_id")
+  profile   Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  promptId  String  @map("prompt_id")
+  prompt    Prompt  @relation(fields: [promptId], references: [id], onDelete: Cascade)
+
+  answerText   String @map("answer_text") @db.VarChar(300)
+  displayOrder Int    @default(0) @map("display_order")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([profileId, promptId])
+  @@unique([profileId, displayOrder])
+  @@map("profile_prompts")
+}
+
+model Preference {
+  id     String @id @default(uuid())
+  userId String @unique @map("user_id")
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  minAge           Int                  @default(18) @map("min_age")
+  maxAge           Int                  @default(99) @map("max_age")
+  maxDistanceKm    Int                  @default(50) @map("max_distance_km")
+  preferredGenders Gender[]             @map("preferred_genders")
+  preferredIntents RelationshipIntent[] @map("preferred_intents")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("preferences")
+}
+
+model ProfileVerification {
+  id     String @id @default(uuid())
+  userId String @unique @map("user_id")
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  status          VerificationStatus @default(NOT_SUBMITTED)
+  livenessScore   Float?             @map("liveness_score")
+  rejectionReason String?            @map("rejection_reason")
+  verifiedAt      DateTime?          @map("verified_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("profile_verifications")
+}
+
 model Match {
-  id            String         @id @default(uuid())
-  user1Id       String
-  user2Id       String
-  score         Float          @default(0.0)
-  createdAt     DateTime       @default(now())
+  id        String   @id @default(uuid())
+  user1Id   String
+  user2Id   String
+  score     Float    @default(0.0)
+  createdAt DateTime @default(now())
 
   @@map("matches")
 }
 
 model Introduction {
-  id           String    @id @default(uuid())
-  userId       String
-  user         User      @relation("UserIntroductions", fields: [userId], references: [id], onDelete: Cascade)
-  partnerId    String
-  partner      User      @relation("PartnerIntroductions", fields: [partnerId], references: [id], onDelete: Cascade)
-  status       String    @default("PENDING")
-  unlockStage  Int       @default(0)
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation("UserIntroductions", fields: [userId], references: [id], onDelete: Cascade)
+  partnerId   String
+  partner     User     @relation("PartnerIntroductions", fields: [partnerId], references: [id], onDelete: Cascade)
+  status      String   @default("PENDING")
+  unlockStage Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-  messages     Message[]
+  messages Message[]
 
   @@map("introductions")
 }
@@ -148,25 +287,25 @@ model Message {
 }
 
 model Report {
-  id          String   @id @default(uuid())
-  reporterId  String
-  reporter    User     @relation("Reporter", fields: [reporterId], references: [id], onDelete: Cascade)
-  reportedId  String
-  reported    User     @relation("ReportedUser", fields: [reportedId], references: [id], onDelete: Cascade)
-  reason      String
-  status      String   @default("PENDING")
-  createdAt   DateTime @default(now())
+  id         String   @id @default(uuid())
+  reporterId String
+  reporter   User     @relation("Reporter", fields: [reporterId], references: [id], onDelete: Cascade)
+  reportedId String
+  reported   User     @relation("ReportedUser", fields: [reportedId], references: [id], onDelete: Cascade)
+  reason     String
+  status     String   @default("PENDING")
+  createdAt  DateTime @default(now())
 
   @@map("reports")
 }
 
 model Block {
-  id          String   @id @default(uuid())
-  blockerId   String
-  blocker     User     @relation("Blocker", fields: [blockerId], references: [id], onDelete: Cascade)
-  blockedId   String
-  blocked     User     @relation("BlockedUser", fields: [blockedId], references: [id], onDelete: Cascade)
-  createdAt   DateTime @default(now())
+  id        String   @id @default(uuid())
+  blockerId String
+  blocker   User     @relation("Blocker", fields: [blockerId], references: [id], onDelete: Cascade)
+  blockedId String
+  blocked   User     @relation("BlockedUser", fields: [blockedId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
 
   @@map("blocks")
 }

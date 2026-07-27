@@ -2,62 +2,116 @@
 
 ## Feature
 
-Authentication Infrastructure
+Profile Database Schema
 
 ---
 
 ## Goal
 
-Implement the shared authentication infrastructure required by all authenticated endpoints.
+Implement the Profile domain database schema based on the approved architecture document.
 
-This feature establishes JWT authentication across the application and provides the reusable components that every protected API will rely on.
+This task is limited to database modeling only.
+
+No business logic, controllers, services, DTOs, or APIs should be implemented.
+
+The objective is to establish a clean, scalable database foundation for the Profile domain.
 
 ---
 
 ## Scope
 
-Implement ONLY the authentication infrastructure.
+Implement ONLY the database schema.
 
-This includes:
+### Profile
 
-### JWT Strategy
+Create the Profile model.
 
-- Validate JWT signatures
-- Validate expiration
-- Validate issuer
-- Validate audience
-- Load authenticated user from database
-- Reject deleted users
-- Reject invalid tokens
+Include only the fields approved in the architecture document.
+
+Keep authentication data inside the existing User model.
 
 ---
 
-### JWT Authentication Guard
+### ProfilePhoto
 
-Create a reusable JwtAuthGuard for protecting authenticated routes.
+Create the ProfilePhoto model.
 
----
+Support:
 
-### Current User Decorator
+- multiple photos
+- ordering
+- moderation status
+- blur hash
 
-Create a strongly typed @CurrentUser() decorator that injects the authenticated user into controllers.
-
----
-
-### Swagger
-
-Configure Bearer Authentication globally.
-
-Protected endpoints should automatically display the authorization requirement.
+Do not implement uploads.
 
 ---
 
-### Testing
+### Interest
 
-Write:
+Create the Interest catalog model.
 
-- Unit tests
-- Integration (E2E) tests
+System-managed only.
+
+---
+
+### ProfileInterest
+
+Create the junction table.
+
+Support many-to-many relationships.
+
+---
+
+### Prompt
+
+Create the Prompt catalog model.
+
+System-managed only.
+
+---
+
+### ProfilePrompt
+
+Create the user's prompt response model.
+
+Do not implement prompt APIs.
+
+---
+
+### Preference
+
+Create the Preference model.
+
+Keep discovery preferences separate from Profile.
+
+---
+
+### ProfileVerification
+
+Create the ProfileVerification model.
+
+Do not implement verification logic.
+
+---
+
+### Enums
+
+Implement the approved enums.
+
+Only include enums that are required for the schema.
+
+---
+
+### Relationships
+
+Implement all foreign keys.
+
+Implement indexes.
+
+Implement unique constraints.
+
+Implement cascade behavior where appropriate.
 
 ---
 
@@ -65,24 +119,31 @@ Write:
 
 Do NOT implement:
 
-- /auth/me
-- Logout
-- Password Reset
-- OAuth
-- RolesGuard
-- UserStatusGuard
-- Rate Limiting
-- Profile APIs
+- Controllers
+- Services
+- DTOs
+- APIs
+- Validation
+- Profile completion engine
+- File uploads
+- Voice intro uploads
+- Matching
+- Discovery
+- AI
+- Moderation logic
+- Background jobs
 
 ---
 
 ## Requirements
 
-This feature must introduce reusable authentication infrastructure only.
+Generate a Prisma migration.
 
-Do not introduce authorization logic.
+Generate Prisma Client.
 
-Do not modify existing authentication endpoints.
+Ensure schema formatting passes.
+
+Ensure migrations apply successfully.
 
 ---
 
@@ -90,29 +151,25 @@ Do not modify existing authentication endpoints.
 
 The task is complete only when:
 
-- JwtStrategy validates JWTs correctly
-- JwtAuthGuard protects endpoints
-- @CurrentUser() works correctly
-- Invalid JWTs return 401
-- Missing JWTs return 401
-- Expired JWTs return 401
-- Deleted users cannot authenticate
-- Swagger supports Bearer Authentication
-- Unit tests pass
-- Integration tests pass
+- Schema compiles
+- Prisma format passes
+- Prisma generate passes
+- Prisma migrate succeeds
+- Database reflects the new models
+- Existing authentication tables remain intact
+- Existing onboarding continues working
 - Build passes
 - Lint passes
-- No TypeScript errors exist
+- Existing unit tests pass
+- Existing E2E tests pass
 
 ---
 
 ## Deliverables
 
-- JwtStrategy
-- JwtAuthGuard
-- CurrentUser decorator
-- Swagger Bearer configuration
-- Tests
+- Updated schema.prisma
+- Prisma migration
+- Generated Prisma Client
 - Updated project/PROGRESS.md
 
-Do not implement anything outside this scope.
+No application code should be added.
