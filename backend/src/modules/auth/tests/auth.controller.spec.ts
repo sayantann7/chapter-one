@@ -23,9 +23,12 @@ describe("AuthController", () => {
         status: "PENDING_ONBOARDING",
         role: "USER",
       },
-      accessToken: "jwt_token_123",
-      tokenType: "Bearer",
-      expiresIn: 900,
+      tokens: {
+        accessToken: "jwt_token_123",
+        refreshToken: "rf_family_token",
+        tokenType: "Bearer",
+        expiresIn: 900,
+      },
     }),
   };
 
@@ -82,15 +85,18 @@ describe("AuthController", () => {
     });
   });
 
-  it("should call authService.login and return formatted response", async () => {
+  it("should call authService.login and return formatted response with tokens", async () => {
     const dto = {
       email: "alex@example.com",
       password: "SecurePassword123!",
     };
 
-    const res = await controller.login(dto);
+    const res = await controller.login(dto, "Mozilla/5.0", "127.0.0.1");
 
-    expect(authService.login).toHaveBeenCalledWith(dto);
+    expect(authService.login).toHaveBeenCalledWith(dto, {
+      userAgent: "Mozilla/5.0",
+      ipAddress: "127.0.0.1",
+    });
     expect(res).toEqual({
       statusCode: 200,
       message: "Login successful",
@@ -101,9 +107,12 @@ describe("AuthController", () => {
           status: "PENDING_ONBOARDING",
           role: "USER",
         },
-        accessToken: "jwt_token_123",
-        tokenType: "Bearer",
-        expiresIn: 900,
+        tokens: {
+          accessToken: "jwt_token_123",
+          refreshToken: "rf_family_token",
+          tokenType: "Bearer",
+          expiresIn: 900,
+        },
       },
     });
   });

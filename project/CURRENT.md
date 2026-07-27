@@ -2,32 +2,32 @@
 
 ## Feature
 
-User Login
+Refresh Token Infrastructure
 
 ---
 
 ## Goal
 
-Implement secure user authentication for verified users.
+Implement secure refresh token generation and storage to enable long-lived authenticated sessions.
 
-This task allows users to log in using their email and password and receive an access token.
+This task introduces refresh tokens but does NOT yet implement logout.
 
 ---
 
 ## Scope
 
-Implement ONLY the login functionality.
+Implement ONLY the refresh token infrastructure.
 
 This includes:
 
-- Login DTO
-- Email lookup
-- Password verification using Argon2id
-- Reject invalid credentials
-- Reject unverified users
-- Reject suspended/deactivated users
-- JWT access token generation
-- Standardized login response
+- Create TokenService
+- Move JWT generation out of AuthService
+- Generate access tokens
+- Generate refresh tokens
+- Generate token family IDs
+- Generate token IDs (JTI)
+- Store refresh token metadata in Redis
+- Update login endpoint to return both tokens
 - Swagger documentation
 - Unit tests
 - Integration tests
@@ -38,14 +38,13 @@ This includes:
 
 Do NOT implement:
 
-- Refresh Tokens
-- Refresh Token Rotation
+- Refresh endpoint
 - Logout
-- Password Reset
+- Token rotation
+- Password reset
 - OAuth
-- Session Management
+- Session invalidation
 - /auth/me
-- Profile Creation
 
 ---
 
@@ -53,27 +52,24 @@ Do NOT implement:
 
 The task is complete only when:
 
-- Verified users can log in
-- Password verification works correctly
-- Invalid credentials return 401 Unauthorized
-- Unverified users cannot log in
-- Suspended users cannot log in
-- JWT access token is generated correctly
-- Swagger documentation is updated
+- TokenService exists
+- AuthService no longer signs JWTs directly
+- Login returns access token and refresh token
+- Refresh token metadata is stored in Redis
+- JWT payload follows authentication-design.md
+- Swagger documentation updated
 - Unit tests pass
 - Integration tests pass
 - Build passes
 - Lint passes
-- No TypeScript errors exist
 
 ---
 
 ## Deliverables
 
-- Login endpoint
-- JWT configuration
-- Login DTO
-- Services
+- TokenService
+- Redis session storage
+- Login updates
 - Tests
 - Updated project/PROGRESS.md
 

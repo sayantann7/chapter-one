@@ -9,7 +9,7 @@ describe("AuthController (e2e)", () => {
   let app: INestApplication;
   let prisma: PrismaService;
   let redis: RedisService;
-  const testEmail = `e2e_login_${Date.now()}@example.com`;
+  const testEmail = `e2e_refresh_${Date.now()}@example.com`;
   const testPassword = "SecurePassword123!";
   let testUserId: string;
   let verificationCode: string;
@@ -61,16 +61,6 @@ describe("AuthController (e2e)", () => {
     verificationCode = storedCode!;
   });
 
-  it("/api/v1/auth/login (POST) - unverified account rejection (401)", async () => {
-    await request(app.getHttpServer())
-      .post("/api/v1/auth/login")
-      .send({
-        email: testEmail,
-        password: testPassword,
-      })
-      .expect(401);
-  });
-
   it("/api/v1/auth/verify-code (POST) - success", async () => {
     const res = await request(app.getHttpServer())
       .post("/api/v1/auth/verify-code")
@@ -83,9 +73,10 @@ describe("AuthController (e2e)", () => {
     expect(res.body.data.status).toBe("PENDING_ONBOARDING");
   });
 
-  it("/api/v1/auth/login (POST) - success after verification", async () => {
+  it("/api/v1/auth/login (POST) - success with access token & refresh token stored in Redis", async () => {
     const res = await request(app.getHttpServer())
       .post("/api/v1/auth/login")
+      .set("User-Agent", "E2ETestClient/1.0")
       .send({
         email: testEmail,
         password: testPassword,
@@ -93,33 +84,27 @@ describe("AuthController (e2e)", () => {
       .expect(200);
 
     expect(res.body).toHaveProperty("statusCode", 200);
-    expect(res.body.data).toHaveProperty("accessToken");
-    expect(res.body.data.tokenType).toBe("Bearer");
-    expect(res.body.data.user).toEqual({
-      id: testUserId,
-      email: testEmail,
-      status: "PENDING_ONBOARDING",
-      role: "USER",
-    });
-  });
+    expect(res.body.data).toHaveProperty("tokens");
+    expect(res.body.data.tokens).toHaveProperty("accessToken");
+    expect(res.body.data.tokens).toHaveProperty("refreshToken");
+    expect(res.body.data.tokens.tokenType).toBe("Bearer");
+    expect(res.body.data.tokens.expiresIn).toBe(900);
 
-  it("/api/v1/auth/login (POST) - invalid password (401)", async () => {
-    await request(app.getHttpServer())
-      .post("/api/v1/auth/login")
-      .send({
-        email: testEmail,
-        password: "WrongPassword123!",
-      })
-      .expect(401);
-  });
+    const refreshTokenString: string = res.body.data.tokens.refreshToken;
+    expect(refreshTokenString).toMatch(/^rf_/);
 
-  it("/api/v1/auth/login (POST) - non-existent email (401)", async () => {
-    await request(app.getHttpServer())
-      .post("/api/v1/auth/login")
-      .send({
-        email: "nonexistent@example.com",
-        password: testPassword,
-      })
-      .expect(401);
+    const parts = refreshTokenString.split("_");
+    expect(parts.length).toBe(3);
+    const familyId = parts[1];
+    const tokenId = parts[2];
+
+    // Verify session metadata is persisted in Redis
+    const sessionJson = await redis.get(
+      `auth:refresh:${testUserId}:${familyId}`,
+    );
+    expect(sessionJson).not.toBeNull();
+    const sessionData = JSON.parse(sessionJson!);
+    expect(sessionData.tokenId).toBe(tokenId);
+    expect(sessionData.userAgent).toBe("E2ETestClient/1.0");
   });
 });

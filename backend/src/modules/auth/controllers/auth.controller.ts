@@ -1,4 +1,12 @@
-import { Body, Controller, HttpCode, HttpStatus, Post } from "@nestjs/common";
+import {
+  Body,
+  Controller,
+  HttpCode,
+  HttpStatus,
+  Ip,
+  Headers,
+  Post,
+} from "@nestjs/common";
 import {
   ApiBadRequestResponse,
   ApiConflictResponse,
@@ -92,7 +100,7 @@ export class AuthController {
   @ApiResponse({
     status: 200,
     description:
-      "Login successful. Returns authenticated user details and JWT access token.",
+      "Login successful. Returns user details, access token, and refresh token.",
     schema: {
       example: {
         statusCode: 200,
@@ -104,9 +112,12 @@ export class AuthController {
             status: "PENDING_ONBOARDING",
             role: "USER",
           },
-          accessToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-          tokenType: "Bearer",
-          expiresIn: 900,
+          tokens: {
+            accessToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+            refreshToken: "rf_9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d_a1b2c3d4",
+            tokenType: "Bearer",
+            expiresIn: 900,
+          },
         },
       },
     },
@@ -118,8 +129,12 @@ export class AuthController {
     description:
       "Invalid credentials or account is unverified/suspended/deactivated",
   })
-  async login(@Body() dto: LoginDto) {
-    const data = await this.authService.login(dto);
+  async login(
+    @Body() dto: LoginDto,
+    @Headers("user-agent") userAgent?: string,
+    @Ip() ipAddress?: string,
+  ) {
+    const data = await this.authService.login(dto, { userAgent, ipAddress });
     return {
       statusCode: HttpStatus.OK,
       message: "Login successful",

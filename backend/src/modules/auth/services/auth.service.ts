@@ -5,12 +5,12 @@ import {
   NotFoundException,
   UnauthorizedException,
 } from "@nestjs/common";
-import { JwtService } from "@nestjs/jwt";
 import { PrismaService } from "../../../prisma/prisma.service";
 import { LoginDto } from "../dto/login.dto";
 import { RegisterDto } from "../dto/register.dto";
 import { VerifyCodeDto } from "../dto/verify-code.dto";
 import { PasswordService } from "./password.service";
+import { DeviceInfo, TokenPairResult, TokenService } from "./token.service";
 import { VerificationService } from "./verification.service";
 
 export interface RegistrationResult {
@@ -31,9 +31,7 @@ export interface LoginResult {
     status: string;
     role: string;
   };
-  accessToken: string;
-  tokenType: string;
-  expiresIn: number;
+  tokens: TokenPairResult;
 }
 
 @Injectable()
@@ -42,7 +40,7 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly passwordService: PasswordService,
     private readonly verificationService: VerificationService,
-    private readonly jwtService: JwtService,
+    private readonly tokenService: TokenService,
   ) {}
 
   async register(dto: RegisterDto): Promise<RegistrationResult> {
@@ -123,7 +121,7 @@ export class AuthService {
     };
   }
 
-  async login(dto: LoginDto): Promise<LoginResult> {
+  async login(dto: LoginDto, deviceInfo?: DeviceInfo): Promise<LoginResult> {
     const user = await this.prisma.user.findUnique({
       where: { email: dto.email },
     });
@@ -150,14 +148,17 @@ export class AuthService {
       throw new UnauthorizedException("Account is suspended or deactivated");
     }
 
-    const payload = {
-      sub: user.id,
+    const userContext = {
+      id: user.id,
       email: user.email,
       status: user.status,
       role: user.role,
     };
 
-    const accessToken = await this.jwtService.signAsync(payload);
+    const tokens = await this.tokenService.generateTokenPair(
+      userContext,
+      deviceInfo,
+    );
 
     await this.prisma.user.update({
       where: { id: user.id },
@@ -165,15 +166,8 @@ export class AuthService {
     });
 
     return {
-      user: {
-        id: user.id,
-        email: user.email,
-        status: user.status,
-        role: user.role,
-      },
-      accessToken,
-      tokenType: "Bearer",
-      expiresIn: 900,
+      user: userContext,
+      tokens,
     };
   }
 }

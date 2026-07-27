@@ -2,7 +2,7 @@
 
 ## Current Status
 
-✅ Phase 1 — User Login Feature Implemented & Verified.
+✅ Phase 1 — Refresh Token Infrastructure Implemented & Verified.
 
 ---
 
@@ -20,13 +20,15 @@
 - Designed complete authentication architecture in `docs/authentication-design.md`
 - Implemented **User Registration** feature (`POST /api/v1/auth/register`) in NestJS
 - Implemented **Account Verification** feature (`POST /api/v1/auth/verify-code`) in NestJS
-- Implemented **User Login** feature (`POST /api/v1/auth/login`) in NestJS:
-  - Installed and configured `@nestjs/jwt` with `JwtModule.registerAsync` using `JWT_SECRET` and `JWT_EXPIRES_IN` configuration
-  - Created `LoginDto` with `class-validator` rules and `@Transform` lowercasing
-  - Implemented `AuthService.login` handling Argon2id password verification, status eligibility validation (rejecting `UNVERIFIED`, `SUSPENDED`, and `DEACTIVATED` accounts with `401 Unauthorized`), updating `lastLoginAt`, and returning user context with signed JWT access token
-  - Added Swagger documentation annotations to `AuthController`
-  - Created unit tests for `login` in `auth.service.spec.ts` and `auth.controller.spec.ts`
-  - Created E2E integration test suite for `login` in `test/auth.e2e-spec.ts`
+- Implemented **User Login** feature (`POST /api/v1/auth/login`) in NestJS
+- Implemented **Refresh Token Infrastructure** in NestJS:
+  - Created standalone `TokenService` responsible for signing JWT Access Tokens (`generateAccessToken`) and generating/persisting Refresh Tokens (`generateRefreshToken`) with `familyId` (UUID) and `tokenId` (UUID)
+  - Configured Redis session metadata storage under key `auth:refresh:<userId>:<familyId>` storing `{ tokenId, createdAt, userAgent, ipAddress }` with 7-day TTL (604,800s)
+  - Refactored `AuthService` to delegate token generation completely to `TokenService`
+  - Updated `POST /api/v1/auth/login` endpoint to accept client User-Agent and IP, returning both `accessToken` and `refreshToken` in the response payload
+  - Added Swagger documentation annotations for refresh tokens
+  - Created unit tests for `TokenService` (`token.service.spec.ts`) and updated `auth.service.spec.ts` & `auth.controller.spec.ts`
+  - Updated E2E integration test suite (`test/auth.e2e-spec.ts`) verifying Redis session persistence
 
 ---
 
@@ -38,7 +40,7 @@ None.
 
 ## Next Task
 
-Phase 1 — Refresh Token & Session Management
+Phase 1 — Refresh Token Rotation Endpoint (`POST /api/v1/auth/refresh`) & Reuse Detection
 
 ---
 
@@ -50,7 +52,7 @@ None.
 
 ## Notes
 
-The User Login feature is fully implemented and verified. Unit tests (4 suites, 25 tests) and E2E integration tests (6 test scenarios) pass cleanly.
+The Refresh Token Infrastructure is fully implemented and verified. Unit tests (5 suites, 28 tests) and E2E integration tests pass cleanly.
 
 All implementation follows:
 

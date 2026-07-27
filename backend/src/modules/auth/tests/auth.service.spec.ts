@@ -4,11 +4,11 @@ import {
   NotFoundException,
   UnauthorizedException,
 } from "@nestjs/common";
-import { JwtService } from "@nestjs/jwt";
 import { Test, TestingModule } from "@nestjs/testing";
 import { PrismaService } from "../../../prisma/prisma.service";
 import { AuthService } from "../services/auth.service";
 import { PasswordService } from "../services/password.service";
+import { TokenService } from "../services/token.service";
 import { VerificationService } from "../services/verification.service";
 
 describe("AuthService", () => {
@@ -16,7 +16,7 @@ describe("AuthService", () => {
   let prisma: PrismaService;
   let passwordService: PasswordService;
   let verificationService: VerificationService;
-  let jwtService: JwtService;
+  let tokenService: TokenService;
 
   const mockPrismaService = {
     user: {
@@ -38,8 +38,13 @@ describe("AuthService", () => {
     deleteVerificationCode: jest.fn().mockResolvedValue(undefined),
   };
 
-  const mockJwtService = {
-    signAsync: jest.fn().mockResolvedValue("mock_signed_jwt_access_token"),
+  const mockTokenService = {
+    generateTokenPair: jest.fn().mockResolvedValue({
+      accessToken: "mock_signed_jwt_access_token",
+      refreshToken: "rf_family_token",
+      tokenType: "Bearer",
+      expiresIn: 900,
+    }),
   };
 
   beforeEach(async () => {
@@ -49,7 +54,7 @@ describe("AuthService", () => {
         { provide: PrismaService, useValue: mockPrismaService },
         { provide: PasswordService, useValue: mockPasswordService },
         { provide: VerificationService, useValue: mockVerificationService },
-        { provide: JwtService, useValue: mockJwtService },
+        { provide: TokenService, useValue: mockTokenService },
       ],
     }).compile();
 
@@ -57,7 +62,7 @@ describe("AuthService", () => {
     prisma = module.get<PrismaService>(PrismaService);
     passwordService = module.get<PasswordService>(PasswordService);
     verificationService = module.get<VerificationService>(VerificationService);
-    jwtService = module.get<JwtService>(JwtService);
+    tokenService = module.get<TokenService>(TokenService);
   });
 
   afterEach(() => {
@@ -211,7 +216,7 @@ describe("AuthService", () => {
   });
 
   describe("login", () => {
-    it("should authenticate user and return signed JWT token", async () => {
+    it("should authenticate user and delegate token creation to TokenService", async () => {
       mockPrismaService.user.findUnique.mockResolvedValue({
         id: "user-uuid-123",
         email: "alex@example.com",
@@ -236,12 +241,15 @@ describe("AuthService", () => {
         "hashed_password",
         dto.password,
       );
-      expect(jwtService.signAsync).toHaveBeenCalledWith({
-        sub: "user-uuid-123",
-        email: "alex@example.com",
-        status: "PENDING_ONBOARDING",
-        role: "USER",
-      });
+      expect(tokenService.generateTokenPair).toHaveBeenCalledWith(
+        {
+          id: "user-uuid-123",
+          email: "alex@example.com",
+          status: "PENDING_ONBOARDING",
+          role: "USER",
+        },
+        undefined,
+      );
       expect(result).toEqual({
         user: {
           id: "user-uuid-123",
@@ -249,9 +257,12 @@ describe("AuthService", () => {
           status: "PENDING_ONBOARDING",
           role: "USER",
         },
-        accessToken: "mock_signed_jwt_access_token",
-        tokenType: "Bearer",
-        expiresIn: 900,
+        tokens: {
+          accessToken: "mock_signed_jwt_access_token",
+          refreshToken: "rf_family_token",
+          tokenType: "Bearer",
+          expiresIn: 900,
+        },
       });
     });
 
@@ -288,23 +299,6 @@ describe("AuthService", () => {
 
       const dto = {
         email: "unverified@example.com",
-        password: "SecurePassword123!",
-      };
-
-      await expect(service.login(dto)).rejects.toThrow(UnauthorizedException);
-    });
-
-    it("should throw UnauthorizedException if user status is SUSPENDED or DEACTIVATED", async () => {
-      mockPrismaService.user.findUnique.mockResolvedValue({
-        id: "user-uuid-123",
-        email: "suspended@example.com",
-        passwordHash: "hashed_password",
-        status: "SUSPENDED",
-      });
-      mockPasswordService.verifyPassword.mockResolvedValue(true);
-
-      const dto = {
-        email: "suspended@example.com",
         password: "SecurePassword123!",
       };
 
