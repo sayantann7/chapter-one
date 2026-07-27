@@ -2,35 +2,88 @@
 
 ## Feature
 
-Refresh Token Infrastructure
+Authentication Architecture Refactor
 
 ---
 
 ## Goal
 
-Implement secure refresh token generation and storage to enable long-lived authenticated sessions.
+Improve the internal architecture of the authentication module without changing any public API behavior.
 
-This task introduces refresh tokens but does NOT yet implement logout.
+This is a refactoring task only. Existing authentication endpoints and responses must continue to work exactly as they do today.
 
 ---
 
 ## Scope
 
-Implement ONLY the refresh token infrastructure.
+Implement ONLY the following architectural improvements.
 
-This includes:
+### 1. SessionService
 
-- Create TokenService
-- Move JWT generation out of AuthService
-- Generate access tokens
-- Generate refresh tokens
-- Generate token family IDs
-- Generate token IDs (JTI)
-- Store refresh token metadata in Redis
-- Update login endpoint to return both tokens
-- Swagger documentation
-- Unit tests
-- Integration tests
+Create a dedicated SessionService responsible for all session persistence.
+
+Move all Redis session operations out of TokenService.
+
+SessionService should own:
+
+- Create session
+- Retrieve session
+- Update session
+- Delete session
+- Delete all sessions for a user
+- Session TTL management
+
+---
+
+### 2. TokenService Refactor
+
+TokenService should ONLY be responsible for:
+
+- Creating access tokens
+- Creating refresh tokens
+- Verifying JWTs
+- Decoding JWTs
+- Creating token identifiers
+
+It must NOT communicate directly with Redis.
+
+---
+
+### 3. Typed JWT Payloads
+
+Introduce strongly typed payload interfaces.
+
+Examples:
+
+- AccessTokenPayload
+- RefreshTokenPayload
+
+Replace inline payload objects throughout the authentication module.
+
+---
+
+### 4. Configuration Cleanup
+
+Move all authentication configuration into ConfigService.
+
+Do not hardcode:
+
+- Access token expiration
+- Refresh token expiration
+- JWT issuer
+- JWT audience
+
+Read these from environment variables.
+
+---
+
+### 5. Internal Cleanup
+
+Remove duplicated authentication logic where appropriate.
+
+Improve naming consistency.
+
+Improve dependency injection where appropriate.
 
 ---
 
@@ -38,13 +91,27 @@ This includes:
 
 Do NOT implement:
 
-- Refresh endpoint
+- Opaque refresh tokens
+- Refresh token hashing
+- Replay attack detection
+- Session family invalidation
 - Logout
-- Token rotation
 - Password reset
 - OAuth
-- Session invalidation
+- Authentication Guards
 - /auth/me
+
+---
+
+## Requirements
+
+This is a refactor.
+
+There must be **NO breaking API changes.**
+
+Existing endpoints must continue working exactly as before.
+
+No request or response contracts should change.
 
 ---
 
@@ -52,25 +119,25 @@ Do NOT implement:
 
 The task is complete only when:
 
-- TokenService exists
-- AuthService no longer signs JWTs directly
-- Login returns access token and refresh token
-- Refresh token metadata is stored in Redis
-- JWT payload follows authentication-design.md
-- Swagger documentation updated
-- Unit tests pass
-- Integration tests pass
+- SessionService exists
+- TokenService no longer communicates with Redis
+- JWT payloads are strongly typed
+- Authentication configuration uses ConfigService
+- Existing endpoints behave identically
+- Existing unit tests still pass
+- Existing E2E tests still pass
 - Build passes
 - Lint passes
+- No TypeScript errors exist
 
 ---
 
 ## Deliverables
 
-- TokenService
-- Redis session storage
-- Login updates
-- Tests
+- SessionService
+- Refactored TokenService
+- Typed JWT payloads
+- Config improvements
 - Updated project/PROGRESS.md
 
-Do not implement features outside this scope.
+Do not implement anything outside this scope.

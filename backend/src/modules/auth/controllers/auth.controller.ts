@@ -17,6 +17,7 @@ import {
   ApiUnauthorizedResponse,
 } from "@nestjs/swagger";
 import { LoginDto } from "../dto/login.dto";
+import { RefreshTokenDto } from "../dto/refresh-token.dto";
 import { RegisterDto } from "../dto/register.dto";
 import { VerifyCodeDto } from "../dto/verify-code.dto";
 import { AuthService } from "../services/auth.service";
@@ -114,7 +115,8 @@ export class AuthController {
           },
           tokens: {
             accessToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-            refreshToken: "rf_9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d_a1b2c3d4",
+            refreshToken:
+              "rf_9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d_a1b2c3d4-e5f6-7890-abcd-ef1234567890_12345678-1234-1234-1234-1234567890ab",
             tokenType: "Bearer",
             expiresIn: 900,
           },
@@ -138,6 +140,49 @@ export class AuthController {
     return {
       statusCode: HttpStatus.OK,
       message: "Login successful",
+      data,
+    };
+  }
+
+  @Post("refresh")
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: "Rotate tokens using an active refresh token" })
+  @ApiResponse({
+    status: 200,
+    description:
+      "Tokens rotated successfully. Returns new access token and new single-use refresh token.",
+    schema: {
+      example: {
+        statusCode: 200,
+        message: "Tokens refreshed successfully",
+        data: {
+          accessToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+          refreshToken:
+            "rf_9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d_a1b2c3d4-e5f6-7890-abcd-ef1234567890_87654321-4321-4321-4321-0987654321ba",
+          tokenType: "Bearer",
+          expiresIn: 900,
+        },
+      },
+    },
+  })
+  @ApiBadRequestResponse({
+    description: "Validation failed for request DTO",
+  })
+  @ApiUnauthorizedResponse({
+    description: "Invalid, expired, or previously rotated refresh token",
+  })
+  async refresh(
+    @Body() dto: RefreshTokenDto,
+    @Headers("user-agent") userAgent?: string,
+    @Ip() ipAddress?: string,
+  ) {
+    const data = await this.authService.refreshToken(dto, {
+      userAgent,
+      ipAddress,
+    });
+    return {
+      statusCode: HttpStatus.OK,
+      message: "Tokens refreshed successfully",
       data,
     };
   }

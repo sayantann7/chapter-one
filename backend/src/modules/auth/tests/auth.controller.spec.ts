@@ -25,10 +25,16 @@ describe("AuthController", () => {
       },
       tokens: {
         accessToken: "jwt_token_123",
-        refreshToken: "rf_family_token",
+        refreshToken: "rf_user-uuid-123_family-456_token-789",
         tokenType: "Bearer",
         expiresIn: 900,
       },
+    }),
+    refreshToken: jest.fn().mockResolvedValue({
+      accessToken: "new_jwt_token_456",
+      refreshToken: "rf_user-uuid-123_family-456_newtoken-999",
+      tokenType: "Bearer",
+      expiresIn: 900,
     }),
   };
 
@@ -109,10 +115,33 @@ describe("AuthController", () => {
         },
         tokens: {
           accessToken: "jwt_token_123",
-          refreshToken: "rf_family_token",
+          refreshToken: "rf_user-uuid-123_family-456_token-789",
           tokenType: "Bearer",
           expiresIn: 900,
         },
+      },
+    });
+  });
+
+  it("should call authService.refreshToken and return rotated tokens", async () => {
+    const dto = {
+      refreshToken: "rf_user-uuid-123_family-456_token-789",
+    };
+
+    const res = await controller.refresh(dto, "Mozilla/5.0", "127.0.0.1");
+
+    expect(authService.refreshToken).toHaveBeenCalledWith(dto, {
+      userAgent: "Mozilla/5.0",
+      ipAddress: "127.0.0.1",
+    });
+    expect(res).toEqual({
+      statusCode: 200,
+      message: "Tokens refreshed successfully",
+      data: {
+        accessToken: "new_jwt_token_456",
+        refreshToken: "rf_user-uuid-123_family-456_newtoken-999",
+        tokenType: "Bearer",
+        expiresIn: 900,
       },
     });
   });

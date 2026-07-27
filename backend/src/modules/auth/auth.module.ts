@@ -4,6 +4,7 @@ import { JwtModule } from "@nestjs/jwt";
 import { AuthController } from "./controllers/auth.controller";
 import { AuthService } from "./services/auth.service";
 import { PasswordService } from "./services/password.service";
+import { SessionService } from "./services/session.service";
 import { TokenService } from "./services/token.service";
 import { VerificationService } from "./services/verification.service";
 
@@ -16,7 +17,8 @@ import { VerificationService } from "./services/verification.service";
         const secret =
           configService.get<string>("JWT_SECRET") ||
           "chapter-one-super-secret-jwt-key-2026";
-        const expiresIn = configService.get<string>("JWT_EXPIRES_IN") || "900s";
+        const expiresIn =
+          configService.get<string>("JWT_ACCESS_EXPIRES_IN") || "900s";
         return {
           secret,
           signOptions: {
@@ -27,12 +29,19 @@ import { VerificationService } from "./services/verification.service";
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, PasswordService, VerificationService, TokenService],
+  providers: [
+    AuthService,
+    PasswordService,
+    VerificationService,
+    TokenService,
+    SessionService,
+  ],
   exports: [
     AuthService,
     PasswordService,
     VerificationService,
     TokenService,
+    SessionService,
     JwtModule,
   ],
 })

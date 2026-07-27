@@ -2,7 +2,7 @@
 
 ## Current Status
 
-✅ Phase 1 — Refresh Token Infrastructure Implemented & Verified.
+✅ Phase 1 — Authentication Architecture Refactor Implemented & Verified.
 
 ---
 
@@ -21,14 +21,15 @@
 - Implemented **User Registration** feature (`POST /api/v1/auth/register`) in NestJS
 - Implemented **Account Verification** feature (`POST /api/v1/auth/verify-code`) in NestJS
 - Implemented **User Login** feature (`POST /api/v1/auth/login`) in NestJS
-- Implemented **Refresh Token Infrastructure** in NestJS:
-  - Created standalone `TokenService` responsible for signing JWT Access Tokens (`generateAccessToken`) and generating/persisting Refresh Tokens (`generateRefreshToken`) with `familyId` (UUID) and `tokenId` (UUID)
-  - Configured Redis session metadata storage under key `auth:refresh:<userId>:<familyId>` storing `{ tokenId, createdAt, userAgent, ipAddress }` with 7-day TTL (604,800s)
-  - Refactored `AuthService` to delegate token generation completely to `TokenService`
-  - Updated `POST /api/v1/auth/login` endpoint to accept client User-Agent and IP, returning both `accessToken` and `refreshToken` in the response payload
-  - Added Swagger documentation annotations for refresh tokens
-  - Created unit tests for `TokenService` (`token.service.spec.ts`) and updated `auth.service.spec.ts` & `auth.controller.spec.ts`
-  - Updated E2E integration test suite (`test/auth.e2e-spec.ts`) verifying Redis session persistence
+- Implemented **Refresh Token Infrastructure** in NestJS
+- Implemented **Refresh Token Rotation** feature (`POST /api/v1/auth/refresh`) in NestJS
+- Implemented **Authentication Architecture Refactor** in NestJS:
+  - Created dedicated `SessionService` (`session.service.ts`) as the single owner of Redis-backed session persistence (`createSession`, `getSession`, `updateSession`, `deleteSession`, `deleteAllSessionsForUser`) and TTL management
+  - Refactored `TokenService` (`token.service.ts`) into a pure token utility service without Redis dependencies
+  - Introduced typed JWT payload interfaces (`jwt-payload.interface.ts`) for `AccessTokenPayload` and `RefreshTokenPayload`
+  - Centralized all authentication configuration in `ConfigService` (`JWT_SECRET`, `JWT_ACCESS_EXPIRES_IN`, `JWT_REFRESH_EXPIRES_IN`, `JWT_ISSUER`, `JWT_AUDIENCE`)
+  - Maintained 100% public API backwards compatibility across all endpoints and contracts
+  - Added unit test suite `session.service.spec.ts` (6 unit test suites, 36 unit tests) and updated E2E integration test suite (7 scenarios)
 
 ---
 
@@ -40,7 +41,7 @@ None.
 
 ## Next Task
 
-Phase 1 — Refresh Token Rotation Endpoint (`POST /api/v1/auth/refresh`) & Reuse Detection
+Phase 1 — Logout Endpoint (`POST /api/v1/auth/logout`) & Session Revocation
 
 ---
 
@@ -52,7 +53,7 @@ None.
 
 ## Notes
 
-The Refresh Token Infrastructure is fully implemented and verified. Unit tests (5 suites, 28 tests) and E2E integration tests pass cleanly.
+The Authentication Architecture Refactor is fully implemented and verified. Unit tests (6 suites, 36 tests) and E2E integration tests (7 test scenarios) pass cleanly with zero public API breaking changes.
 
 All implementation follows:
 

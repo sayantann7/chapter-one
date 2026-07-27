@@ -1,7 +1,11 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, UnauthorizedException } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import { JwtService } from "@nestjs/jwt";
-import { RedisService } from "../../../redis/redis.service";
 import * as crypto from "crypto";
+import {
+  AccessTokenPayload,
+  RefreshTokenPayload,
+} from "../interfaces/jwt-payload.interface";
 
 export interface UserContext {
   id: string;
@@ -10,78 +14,85 @@ export interface UserContext {
   role: string;
 }
 
-export interface DeviceInfo {
-  userAgent?: string;
-  ipAddress?: string;
-}
-
-export interface TokenPairResult {
-  accessToken: string;
-  refreshToken: string;
-  tokenType: string;
-  expiresIn: number;
-}
-
 @Injectable()
 export class TokenService {
+  private readonly issuer: string;
+  private readonly audience: string;
+
   constructor(
     private readonly jwtService: JwtService,
-    private readonly redisService: RedisService,
-  ) {}
+    private readonly configService: ConfigService,
+  ) {
+    this.issuer = this.configService.get<string>(
+      "JWT_ISSUER",
+      "chapter-one-auth",
+    );
+    this.audience = this.configService.get<string>(
+      "JWT_AUDIENCE",
+      "chapter-one-api",
+    );
+  }
+
+  generateFamilyId(): string {
+    return crypto.randomUUID();
+  }
+
+  generateTokenId(): string {
+    return crypto.randomUUID();
+  }
 
   async generateAccessToken(user: UserContext): Promise<string> {
-    const payload = {
+    const payload: AccessTokenPayload = {
       sub: user.id,
       email: user.email,
       status: user.status,
       role: user.role,
-      jti: `jwt_${crypto.randomUUID()}`,
+      jti: `jwt_${this.generateTokenId()}`,
     };
 
-    return this.jwtService.signAsync(payload);
-  }
-
-  async generateRefreshToken(
-    userId: string,
-    deviceInfo?: DeviceInfo,
-    ttlSeconds = 604800, // 7 days
-  ): Promise<{ refreshToken: string; familyId: string; tokenId: string }> {
-    const familyId = crypto.randomUUID();
-    const tokenId = crypto.randomUUID();
-    const refreshToken = `rf_${familyId}_${tokenId}`;
-
-    const redisKey = `auth:refresh:${userId}:${familyId}`;
-    const sessionData = JSON.stringify({
-      tokenId,
-      createdAt: Math.floor(Date.now() / 1000),
-      userAgent: deviceInfo?.userAgent || "Unknown",
-      ipAddress: deviceInfo?.ipAddress || "Unknown",
+    return this.jwtService.signAsync(payload, {
+      issuer: this.issuer,
+      audience: this.audience,
     });
+  }
 
-    await this.redisService.set(redisKey, sessionData, ttlSeconds);
+  generateRefreshTokenString(
+    userId: string,
+    familyId: string,
+    tokenId: string,
+  ): string {
+    return `rf_${userId}_${familyId}_${tokenId}`;
+  }
+
+  parseRefreshTokenString(refreshTokenString: string): RefreshTokenPayload {
+    if (!refreshTokenString || typeof refreshTokenString !== "string") {
+      throw new UnauthorizedException("Invalid refresh token format");
+    }
+
+    const parts = refreshTokenString.split("_");
+    if (parts.length !== 4 || parts[0] !== "rf") {
+      throw new UnauthorizedException("Invalid refresh token format");
+    }
 
     return {
-      refreshToken,
-      familyId,
-      tokenId,
+      userId: parts[1],
+      familyId: parts[2],
+      tokenId: parts[3],
     };
   }
 
-  async generateTokenPair(
-    user: UserContext,
-    deviceInfo?: DeviceInfo,
-  ): Promise<TokenPairResult> {
-    const accessToken = await this.generateAccessToken(user);
-    const { refreshToken } = await this.generateRefreshToken(
-      user.id,
-      deviceInfo,
-    );
+  async verifyJwt(token: string): Promise<AccessTokenPayload> {
+    try {
+      return await this.jwtService.verifyAsync<AccessTokenPayload>(token, {
+        issuer: this.issuer,
+        audience: this.audience,
+      });
+    } catch {
+      throw new UnauthorizedException("Invalid or expired token");
+    }
+  }
 
-    return {
-      accessToken,
-      refreshToken,
-      tokenType: "Bearer",
-      expiresIn: 900,
-    };
+  decodeJwt(token: string): AccessTokenPayload | null {
+    return this.jwtService.decode<AccessTokenPayload>(token);
   }
 }

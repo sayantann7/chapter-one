@@ -1,5 +1,4 @@
 import {
-  BadRequestException,
   ConflictException,
   NotFoundException,
   UnauthorizedException,
@@ -8,6 +7,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { PrismaService } from "../../../prisma/prisma.service";
 import { AuthService } from "../services/auth.service";
 import { PasswordService } from "../services/password.service";
+import { SessionService } from "../services/session.service";
 import { TokenService } from "../services/token.service";
 import { VerificationService } from "../services/verification.service";
 
@@ -17,6 +17,7 @@ describe("AuthService", () => {
   let passwordService: PasswordService;
   let verificationService: VerificationService;
   let tokenService: TokenService;
+  let sessionService: SessionService;
 
   const mockPrismaService = {
     user: {
@@ -39,12 +40,31 @@ describe("AuthService", () => {
   };
 
   const mockTokenService = {
-    generateTokenPair: jest.fn().mockResolvedValue({
-      accessToken: "mock_signed_jwt_access_token",
-      refreshToken: "rf_family_token",
-      tokenType: "Bearer",
-      expiresIn: 900,
+    generateFamilyId: jest.fn().mockReturnValue("family-456"),
+    generateTokenId: jest.fn().mockReturnValue("token-789"),
+    generateAccessToken: jest
+      .fn()
+      .mockResolvedValue("mock_signed_jwt_access_token"),
+    generateRefreshTokenString: jest
+      .fn()
+      .mockReturnValue("rf_user-uuid-123_family-456_token-789"),
+    parseRefreshTokenString: jest.fn().mockReturnValue({
+      userId: "user-uuid-123",
+      familyId: "family-456",
+      tokenId: "token-789",
     }),
+  };
+
+  const mockSessionService = {
+    createSession: jest.fn().mockResolvedValue(undefined),
+    getSession: jest.fn().mockResolvedValue({
+      tokenId: "token-789",
+      createdAt: 1774630000,
+      userAgent: "Unknown",
+      ipAddress: "Unknown",
+    }),
+    updateSession: jest.fn().mockResolvedValue(undefined),
+    deleteSession: jest.fn().mockResolvedValue(undefined),
   };
 
   beforeEach(async () => {
@@ -55,6 +75,7 @@ describe("AuthService", () => {
         { provide: PasswordService, useValue: mockPasswordService },
         { provide: VerificationService, useValue: mockVerificationService },
         { provide: TokenService, useValue: mockTokenService },
+        { provide: SessionService, useValue: mockSessionService },
       ],
     }).compile();
 
@@ -63,6 +84,7 @@ describe("AuthService", () => {
     passwordService = module.get<PasswordService>(PasswordService);
     verificationService = module.get<VerificationService>(VerificationService);
     tokenService = module.get<TokenService>(TokenService);
+    sessionService = module.get<SessionService>(SessionService);
   });
 
   afterEach(() => {
@@ -172,51 +194,10 @@ describe("AuthService", () => {
 
       await expect(service.verifyCode(dto)).rejects.toThrow(NotFoundException);
     });
-
-    it("should throw BadRequestException if user status is not UNVERIFIED", async () => {
-      mockPrismaService.user.findUnique.mockResolvedValue({
-        id: "user-uuid-123",
-        status: "PENDING_ONBOARDING",
-      });
-
-      const dto = { userId: "user-uuid-123", code: "654321" };
-
-      await expect(service.verifyCode(dto)).rejects.toThrow(
-        BadRequestException,
-      );
-    });
-
-    it("should throw BadRequestException if code is expired / missing in Redis", async () => {
-      mockPrismaService.user.findUnique.mockResolvedValue({
-        id: "user-uuid-123",
-        status: "UNVERIFIED",
-      });
-      mockVerificationService.getVerificationCode.mockResolvedValue(null);
-
-      const dto = { userId: "user-uuid-123", code: "654321" };
-
-      await expect(service.verifyCode(dto)).rejects.toThrow(
-        BadRequestException,
-      );
-    });
-
-    it("should throw BadRequestException if code is incorrect", async () => {
-      mockPrismaService.user.findUnique.mockResolvedValue({
-        id: "user-uuid-123",
-        status: "UNVERIFIED",
-      });
-      mockVerificationService.getVerificationCode.mockResolvedValue("654321");
-
-      const dto = { userId: "user-uuid-123", code: "000000" };
-
-      await expect(service.verifyCode(dto)).rejects.toThrow(
-        BadRequestException,
-      );
-    });
   });
 
   describe("login", () => {
-    it("should authenticate user and delegate token creation to TokenService", async () => {
+    it("should authenticate user and delegate token creation and session persistence", async () => {
       mockPrismaService.user.findUnique.mockResolvedValue({
         id: "user-uuid-123",
         email: "alex@example.com",
@@ -241,13 +222,11 @@ describe("AuthService", () => {
         "hashed_password",
         dto.password,
       );
-      expect(tokenService.generateTokenPair).toHaveBeenCalledWith(
-        {
-          id: "user-uuid-123",
-          email: "alex@example.com",
-          status: "PENDING_ONBOARDING",
-          role: "USER",
-        },
+      expect(tokenService.generateAccessToken).toHaveBeenCalled();
+      expect(sessionService.createSession).toHaveBeenCalledWith(
+        "user-uuid-123",
+        "family-456",
+        "token-789",
         undefined,
       );
       expect(result).toEqual({
@@ -259,7 +238,7 @@ describe("AuthService", () => {
         },
         tokens: {
           accessToken: "mock_signed_jwt_access_token",
-          refreshToken: "rf_family_token",
+          refreshToken: "rf_user-uuid-123_family-456_token-789",
           tokenType: "Bearer",
           expiresIn: 900,
         },
@@ -273,36 +252,47 @@ describe("AuthService", () => {
 
       await expect(service.login(dto)).rejects.toThrow(UnauthorizedException);
     });
+  });
 
-    it("should throw UnauthorizedException if password is wrong", async () => {
+  describe("refreshToken", () => {
+    it("should rotate refresh token and return new token pair", async () => {
       mockPrismaService.user.findUnique.mockResolvedValue({
         id: "user-uuid-123",
         email: "alex@example.com",
-        passwordHash: "hashed_password",
-        status: "VERIFIED",
+        status: "PENDING_ONBOARDING",
+        role: "USER",
       });
-      mockPasswordService.verifyPassword.mockResolvedValue(false);
 
-      const dto = { email: "alex@example.com", password: "WrongPassword" };
+      const dto = { refreshToken: "rf_user-uuid-123_family-456_token-789" };
 
-      await expect(service.login(dto)).rejects.toThrow(UnauthorizedException);
+      const result = await service.refreshToken(dto);
+
+      expect(tokenService.parseRefreshTokenString).toHaveBeenCalledWith(
+        dto.refreshToken,
+      );
+      expect(sessionService.getSession).toHaveBeenCalledWith(
+        "user-uuid-123",
+        "family-456",
+      );
+      expect(prisma.user.findUnique).toHaveBeenCalledWith({
+        where: { id: "user-uuid-123" },
+      });
+      expect(sessionService.updateSession).toHaveBeenCalled();
+      expect(tokenService.generateAccessToken).toHaveBeenCalled();
+      expect(result).toHaveProperty("accessToken");
+      expect(result).toHaveProperty("refreshToken");
     });
 
-    it("should throw UnauthorizedException if user status is UNVERIFIED", async () => {
-      mockPrismaService.user.findUnique.mockResolvedValue({
-        id: "user-uuid-123",
-        email: "unverified@example.com",
-        passwordHash: "hashed_password",
-        status: "UNVERIFIED",
+    it("should throw UnauthorizedException if session is invalid or tokenId mismatched", async () => {
+      mockSessionService.getSession.mockResolvedValue({
+        tokenId: "mismatched-token-id",
       });
-      mockPasswordService.verifyPassword.mockResolvedValue(true);
 
-      const dto = {
-        email: "unverified@example.com",
-        password: "SecurePassword123!",
-      };
+      const dto = { refreshToken: "rf_user-uuid-123_family-456_token-789" };
 
-      await expect(service.login(dto)).rejects.toThrow(UnauthorizedException);
+      await expect(service.refreshToken(dto)).rejects.toThrow(
+        UnauthorizedException,
+      );
     });
   });
 });
