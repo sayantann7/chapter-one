@@ -1,10 +1,14 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { ProfileController } from "../controllers/profile.controller";
+import { InterestService } from "../services/interest.service";
+import { PhotoService } from "../services/photo.service";
 import { ProfileService } from "../services/profile.service";
 
 describe("ProfileController", () => {
   let controller: ProfileController;
   let profileService: ProfileService;
+  let photoService: PhotoService;
+  let interestService: InterestService;
 
   const mockProfile = {
     id: "profile-uuid-123",
@@ -41,11 +45,17 @@ describe("ProfileController", () => {
     updateMyProfile: jest
       .fn()
       .mockResolvedValue({ ...mockProfile, firstName: "Alex Updated" }),
+  };
+
+  const mockPhotoService = {
     addPhoto: jest.fn().mockResolvedValue(mockPhoto),
     deletePhoto: jest
       .fn()
       .mockResolvedValue({ message: "Photo deleted successfully" }),
     reorderPhotos: jest.fn().mockResolvedValue([mockPhoto]),
+  };
+
+  const mockInterestService = {
     getInterestsCatalog: jest.fn().mockResolvedValue(mockCatalog),
     updateUserInterests: jest.fn().mockResolvedValue(mockUserInterests),
   };
@@ -53,11 +63,17 @@ describe("ProfileController", () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [ProfileController],
-      providers: [{ provide: ProfileService, useValue: mockProfileService }],
+      providers: [
+        { provide: ProfileService, useValue: mockProfileService },
+        { provide: PhotoService, useValue: mockPhotoService },
+        { provide: InterestService, useValue: mockInterestService },
+      ],
     }).compile();
 
     controller = module.get<ProfileController>(ProfileController);
     profileService = module.get<ProfileService>(ProfileService);
+    photoService = module.get<PhotoService>(PhotoService);
+    interestService = module.get<InterestService>(InterestService);
   });
 
   it("should be defined", () => {
@@ -107,11 +123,11 @@ describe("ProfileController", () => {
     });
   });
 
-  it("should call profileService.addPhoto and return formatted response", async () => {
+  it("should call photoService.addPhoto and return formatted response", async () => {
     const dto = { url: "https://images.com/photo1.jpg" };
     const res = await controller.addPhoto("user-uuid-123", dto);
 
-    expect(profileService.addPhoto).toHaveBeenCalledWith("user-uuid-123", dto);
+    expect(photoService.addPhoto).toHaveBeenCalledWith("user-uuid-123", dto);
     expect(res).toEqual({
       statusCode: 201,
       message: "Photo added successfully",
@@ -119,10 +135,10 @@ describe("ProfileController", () => {
     });
   });
 
-  it("should call profileService.deletePhoto and return formatted response", async () => {
+  it("should call photoService.deletePhoto and return formatted response", async () => {
     const res = await controller.deletePhoto("user-uuid-123", "photo-uuid-1");
 
-    expect(profileService.deletePhoto).toHaveBeenCalledWith(
+    expect(photoService.deletePhoto).toHaveBeenCalledWith(
       "user-uuid-123",
       "photo-uuid-1",
     );
@@ -132,11 +148,11 @@ describe("ProfileController", () => {
     });
   });
 
-  it("should call profileService.reorderPhotos and return formatted response", async () => {
+  it("should call photoService.reorderPhotos and return formatted response", async () => {
     const dto = { photoIds: ["photo-uuid-1"] };
     const res = await controller.reorderPhotos("user-uuid-123", dto);
 
-    expect(profileService.reorderPhotos).toHaveBeenCalledWith(
+    expect(photoService.reorderPhotos).toHaveBeenCalledWith(
       "user-uuid-123",
       dto,
     );
@@ -147,10 +163,10 @@ describe("ProfileController", () => {
     });
   });
 
-  it("should call profileService.getInterestsCatalog and return formatted response", async () => {
+  it("should call interestService.getInterestsCatalog and return formatted response", async () => {
     const res = await controller.getInterestsCatalog();
 
-    expect(profileService.getInterestsCatalog).toHaveBeenCalled();
+    expect(interestService.getInterestsCatalog).toHaveBeenCalled();
     expect(res).toEqual({
       statusCode: 200,
       message: "Interest catalog retrieved successfully",
@@ -158,11 +174,11 @@ describe("ProfileController", () => {
     });
   });
 
-  it("should call profileService.updateUserInterests and return formatted response", async () => {
+  it("should call interestService.updateUserInterests and return formatted response", async () => {
     const dto = { interestIds: ["i1", "i2", "i3"] };
     const res = await controller.updateUserInterests("user-uuid-123", dto);
 
-    expect(profileService.updateUserInterests).toHaveBeenCalledWith(
+    expect(interestService.updateUserInterests).toHaveBeenCalledWith(
       "user-uuid-123",
       dto,
     );

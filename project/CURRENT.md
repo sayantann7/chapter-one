@@ -2,90 +2,59 @@
 
 ## Feature
 
-Profile Interests
+Profile Architecture Refactor
 
 ---
 
 ## Goal
 
-Implement user interest management using the existing Interest catalog and ProfileInterest junction table.
+Refactor the Profile module to improve maintainability before implementing the remaining profile features.
 
-The Interest catalog is system-managed.
+This is an internal architectural improvement.
 
-Users may only select interests from the catalog.
+No external API behavior should change.
 
 ---
 
 ## Scope
 
-### Catalog
+### Service Split
 
-GET /api/v1/profile/interests
+Extract responsibilities into dedicated services:
 
-Return all active interests grouped by category.
+- ProfileService
+- PhotoService
+- InterestService
 
-Catalog is read-only.
-
----
-
-### User Interests
-
-PUT /api/v1/profile/interests
-
-Replace the authenticated user's selected interests.
-
-Requirements:
-
-- minimum 3 interests
-- maximum 10 interests
-- IDs must exist
-- no duplicates
-
-Replace the entire selection atomically.
+Each service should own only its corresponding business logic.
 
 ---
 
-### Validation
+### Repository Layer
 
-Enforce:
+Introduce repositories:
 
-- 3–10 selections
-- unique IDs
-- valid Interest IDs
+- ProfileRepository
+- PhotoRepository
+- InterestRepository
 
----
+Move all Prisma access into repositories.
 
-### Authentication
-
-Protect every endpoint using:
-
-- JwtAuthGuard
-- @CurrentUser()
+Services should no longer access Prisma directly.
 
 ---
 
-### Swagger
+### Dependency Injection
 
-Document every endpoint.
+Register repositories and services using NestJS dependency injection.
 
 ---
 
-### Tests
+### Backward Compatibility
 
-Write:
+Controllers should continue exposing the exact same API.
 
-- unit tests
-- E2E tests
-
-Cover:
-
-- list catalog
-- update interests
-- invalid IDs
-- duplicate IDs
-- too few
-- too many
-- unauthorized access
+No request or response contracts should change.
 
 ---
 
@@ -93,31 +62,32 @@ Cover:
 
 Do NOT implement:
 
-- recommendations
-- matching
-- embeddings
+- prompts
+- preferences
 - completion engine
+- onboarding changes
+- matching
+- discovery
 - AI
-- discovery ranking
 
 ---
 
 ## Definition of Done
 
-- catalog endpoint works
-- update endpoint works
-- validation enforced
-- atomic replacement
-- tests pass
-- build passes
-- lint passes
+- Prisma accessed only through repositories
+- Services have single responsibility
+- Controllers unchanged
+- All tests pass
+- Build passes
+- Lint passes
+- No API behavior changes
 
 ---
 
 ## Deliverables
 
-- DTOs
-- Controller updates
-- Service updates
-- Tests
+- Repository classes
+- Refactored services
+- Updated dependency injection
+- Updated tests if required
 - Updated project/PROGRESS.md

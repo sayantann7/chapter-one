@@ -28,6 +28,8 @@ import { CreateProfileDto } from "../dto/create-profile.dto";
 import { ReorderProfilePhotosDto } from "../dto/reorder-profile-photos.dto";
 import { UpdateProfileInterestsDto } from "../dto/update-profile-interests.dto";
 import { UpdateProfileDto } from "../dto/update-profile.dto";
+import { InterestService } from "../services/interest.service";
+import { PhotoService } from "../services/photo.service";
 import { ProfileService } from "../services/profile.service";
 
 @ApiTags("Profile")
@@ -35,7 +37,11 @@ import { ProfileService } from "../services/profile.service";
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth("Bearer")
 export class ProfileController {
-  constructor(private readonly profileService: ProfileService) {}
+  constructor(
+    private readonly profileService: ProfileService,
+    private readonly photoService: PhotoService,
+    private readonly interestService: InterestService,
+  ) {}
 
   @Get("me")
   @ApiOperation({ summary: "Get current authenticated user profile" })
@@ -133,7 +139,7 @@ export class ProfileController {
     @CurrentUser("id") userId: string,
     @Body() dto: CreateProfilePhotoDto,
   ) {
-    const data = await this.profileService.addPhoto(userId, dto);
+    const data = await this.photoService.addPhoto(userId, dto);
     return {
       statusCode: HttpStatus.CREATED,
       message: "Photo added successfully",
@@ -155,7 +161,7 @@ export class ProfileController {
     @CurrentUser("id") userId: string,
     @Param("photoId") photoId: string,
   ) {
-    await this.profileService.deletePhoto(userId, photoId);
+    await this.photoService.deletePhoto(userId, photoId);
     return {
       statusCode: HttpStatus.OK,
       message: "Photo deleted successfully",
@@ -179,7 +185,7 @@ export class ProfileController {
     @CurrentUser("id") userId: string,
     @Body() dto: ReorderProfilePhotosDto,
   ) {
-    const data = await this.profileService.reorderPhotos(userId, dto);
+    const data = await this.photoService.reorderPhotos(userId, dto);
     return {
       statusCode: HttpStatus.OK,
       message: "Photos reordered successfully",
@@ -199,7 +205,7 @@ export class ProfileController {
     description: "Missing or invalid JWT token",
   })
   async getInterestsCatalog() {
-    const data = await this.profileService.getInterestsCatalog();
+    const data = await this.interestService.getInterestsCatalog();
     return {
       statusCode: HttpStatus.OK,
       message: "Interest catalog retrieved successfully",
@@ -231,7 +237,7 @@ export class ProfileController {
     @CurrentUser("id") userId: string,
     @Body() dto: UpdateProfileInterestsDto,
   ) {
-    const data = await this.profileService.updateUserInterests(userId, dto);
+    const data = await this.interestService.updateUserInterests(userId, dto);
     return {
       statusCode: HttpStatus.OK,
       message: "User interests updated successfully",

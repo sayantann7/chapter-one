@@ -1,41 +1,18 @@
 import {
-  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
-import { PrismaService } from "../../../prisma/prisma.service";
-import { CreateProfilePhotoDto } from "../dto/create-profile-photo.dto";
 import { CreateProfileDto } from "../dto/create-profile.dto";
-import { ReorderProfilePhotosDto } from "../dto/reorder-profile-photos.dto";
-import { UpdateProfileInterestsDto } from "../dto/update-profile-interests.dto";
 import { UpdateProfileDto } from "../dto/update-profile.dto";
+import { ProfileRepository } from "../repositories/profile.repository";
 
 @Injectable()
 export class ProfileService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly profileRepository: ProfileRepository) {}
 
   async getProfileByUserId(userId: string) {
-    return this.prisma.profile.findUnique({
-      where: { userId },
-      include: {
-        photos: {
-          orderBy: { displayOrder: "asc" },
-        },
-        voiceIntro: true,
-        userInterests: {
-          include: {
-            interest: true,
-          },
-        },
-        prompts: {
-          include: {
-            prompt: true,
-          },
-          orderBy: { displayOrder: "asc" },
-        },
-      },
-    });
+    return this.profileRepository.findByUserId(userId);
   }
 
   async getProfileForCurrentUser(userId: string) {
@@ -56,18 +33,9 @@ export class ProfileService {
 
     const { birthdate, ...rest } = dto;
 
-    return this.prisma.profile.create({
-      data: {
-        userId,
-        ...rest,
-        birthdate: birthdate ? new Date(birthdate) : undefined,
-      },
-      include: {
-        photos: true,
-        voiceIntro: true,
-        userInterests: true,
-        prompts: true,
-      },
+    return this.profileRepository.create(userId, {
+      ...rest,
+      birthdate: birthdate ? new Date(birthdate) : undefined,
     });
   }
 
@@ -83,208 +51,9 @@ export class ProfileService {
     delete (rest as any).completionScore;
     delete (rest as any).isComplete;
 
-    return this.prisma.profile.update({
-      where: { userId },
-      data: {
-        ...rest,
-        birthdate: birthdate ? new Date(birthdate) : undefined,
-      },
-      include: {
-        photos: true,
-        voiceIntro: true,
-        userInterests: true,
-        prompts: true,
-      },
-    });
-  }
-
-  async addPhoto(userId: string, dto: CreateProfilePhotoDto) {
-    const profile = await this.getProfileForCurrentUser(userId);
-
-    const count = await this.prisma.profilePhoto.count({
-      where: { profileId: profile.id },
-    });
-
-    if (count >= 6) {
-      throw new BadRequestException("Maximum 6 photos allowed per profile");
-    }
-
-    return this.prisma.profilePhoto.create({
-      data: {
-        profileId: profile.id,
-        url: dto.url,
-        thumbnailUrl: dto.thumbnailUrl,
-        blurHash: dto.blurHash,
-        displayOrder: count,
-      },
-    });
-  }
-
-  async deletePhoto(userId: string, photoId: string) {
-    const profile = await this.getProfileForCurrentUser(userId);
-
-    const photo = await this.prisma.profilePhoto.findUnique({
-      where: { id: photoId },
-    });
-
-    if (!photo || photo.profileId !== profile.id) {
-      throw new NotFoundException("Photo not found or owned by another user");
-    }
-
-    await this.prisma.$transaction(async (tx) => {
-      await tx.profilePhoto.delete({
-        where: { id: photoId },
-      });
-
-      const remaining = await tx.profilePhoto.findMany({
-        where: { profileId: profile.id },
-        orderBy: { displayOrder: "asc" },
-      });
-
-      // Temporary negative displayOrder shift to satisfy @@unique([profileId, displayOrder])
-      for (let i = 0; i < remaining.length; i++) {
-        await tx.profilePhoto.update({
-          where: { id: remaining[i].id },
-          data: { displayOrder: -1 - i },
-        });
-      }
-
-      // Final target displayOrder assignment
-      for (let i = 0; i < remaining.length; i++) {
-        await tx.profilePhoto.update({
-          where: { id: remaining[i].id },
-          data: { displayOrder: i },
-        });
-      }
-    });
-
-    return { message: "Photo deleted successfully" };
-  }
-
-  async reorderPhotos(userId: string, dto: ReorderProfilePhotosDto) {
-    const profile = await this.getProfileForCurrentUser(userId);
-
-    const photos = await this.prisma.profilePhoto.findMany({
-      where: { profileId: profile.id },
-    });
-
-    if (dto.photoIds.length !== photos.length) {
-      throw new BadRequestException("Invalid photo count in reorder request");
-    }
-
-    const existingIds = new Set(photos.map((p) => p.id));
-    const isValid = dto.photoIds.every((id) => existingIds.has(id));
-
-    if (!isValid) {
-      throw new BadRequestException(
-        "One or more photo IDs do not belong to user profile",
-      );
-    }
-
-    await this.prisma.$transaction(async (tx) => {
-      // Temporary negative displayOrder shift to satisfy @@unique([profileId, displayOrder])
-      for (let i = 0; i < dto.photoIds.length; i++) {
-        await tx.profilePhoto.update({
-          where: { id: dto.photoIds[i] },
-          data: { displayOrder: -1 - i },
-        });
-      }
-
-      // Final target displayOrder assignment
-      for (let i = 0; i < dto.photoIds.length; i++) {
-        await tx.profilePhoto.update({
-          where: { id: dto.photoIds[i] },
-          data: { displayOrder: i },
-        });
-      }
-    });
-
-    return this.prisma.profilePhoto.findMany({
-      where: { profileId: profile.id },
-      orderBy: { displayOrder: "asc" },
-    });
-  }
-
-  async getInterestsCatalog() {
-    let interests = await this.prisma.interest.findMany({
-      orderBy: [{ category: "asc" }, { name: "asc" }],
-    });
-
-    if (interests.length === 0) {
-      await this.prisma.interest.createMany({
-        data: [
-          { name: "Hiking", category: "Outdoors" },
-          { name: "Camping", category: "Outdoors" },
-          { name: "Coding", category: "Tech" },
-          { name: "Photography", category: "Arts" },
-          { name: "Cooking", category: "Culinary" },
-          { name: "Yoga", category: "Fitness" },
-        ],
-        skipDuplicates: true,
-      });
-
-      interests = await this.prisma.interest.findMany({
-        orderBy: [{ category: "asc" }, { name: "asc" }],
-      });
-    }
-
-    const grouped = interests.reduce(
-      (acc, item) => {
-        const category = item.category || "General";
-        if (!acc[category]) {
-          acc[category] = [];
-        }
-        acc[category].push(item);
-        return acc;
-      },
-      {} as Record<string, typeof interests>,
-    );
-
-    return grouped;
-  }
-
-  async updateUserInterests(userId: string, dto: UpdateProfileInterestsDto) {
-    const profile = await this.getProfileForCurrentUser(userId);
-
-    const uniqueIds = Array.from(new Set(dto.interestIds));
-    if (uniqueIds.length !== dto.interestIds.length) {
-      throw new BadRequestException("Duplicate interest IDs are not allowed");
-    }
-
-    if (dto.interestIds.length < 3 || dto.interestIds.length > 10) {
-      throw new BadRequestException(
-        "Interests selection must contain between 3 and 10 items",
-      );
-    }
-
-    const existingInterests = await this.prisma.interest.findMany({
-      where: { id: { in: dto.interestIds } },
-    });
-
-    if (existingInterests.length !== dto.interestIds.length) {
-      throw new BadRequestException(
-        "One or more interest IDs do not exist in the catalog",
-      );
-    }
-
-    await this.prisma.$transaction(async (tx) => {
-      await tx.profileInterest.deleteMany({
-        where: { profileId: profile.id },
-      });
-
-      await tx.profileInterest.createMany({
-        data: dto.interestIds.map((interestId) => ({
-          profileId: profile.id,
-          interestId,
-        })),
-      });
-    });
-
-    return this.prisma.profileInterest.findMany({
-      where: { profileId: profile.id },
-      include: {
-        interest: true,
-      },
+    return this.profileRepository.update(userId, {
+      ...rest,
+      birthdate: birthdate ? new Date(birthdate) : undefined,
     });
   }
 }

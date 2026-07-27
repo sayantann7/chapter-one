@@ -2,7 +2,7 @@
 
 ## Current Status
 
-✅ Phase 1 — Profile Interests Management Implemented & Verified.
+✅ Phase 1 — Profile Architecture Refactor Implemented & Verified.
 
 ---
 
@@ -31,13 +31,14 @@
 - Implemented **Profile Infrastructure** in NestJS
 - Implemented **Basic Profile Management** in NestJS
 - Implemented **Profile Photos Management** in NestJS
-- Implemented **Profile Interests Management** in NestJS:
-  - Created `UpdateProfileInterestsDto` (enforcing `@ArrayMinSize(3)`, `@ArrayMaxSize(10)`, and `@ArrayUnique()`)
-  - Implemented `GET /api/v1/profile/interests` endpoint protected by `JwtAuthGuard` and `@CurrentUser()` returning read-only catalog grouped by category
-  - Implemented `PUT /api/v1/profile/interests` endpoint protected by `JwtAuthGuard` and `@CurrentUser()` for atomically replacing user interest selection (validating interest ID existence and replacing rows via database transaction)
-  - Added Swagger documentation annotations across interest endpoints with Bearer auth support (`@ApiBearerAuth('Bearer')`)
-  - Updated unit test suites (`profile.service.spec.ts`, `profile.controller.spec.ts` — 13 suites, 83 unit tests total across all modules)
-  - Updated E2E integration test suite (`test/profile.e2e-spec.ts` — 23 scenarios total across 3 suites) verifying catalog listing, atomic interest replacement, count bounds validation (too few/too many), duplicate ID rejection, invalid ID rejection, and 401 unauthenticated access
+- Implemented **Profile Interests Management** in NestJS
+- Implemented **Profile Architecture Refactor** in NestJS:
+  - Created repository layer: `ProfileRepository`, `PhotoRepository`, `InterestRepository` in `backend/src/modules/profile/repositories/` encapsulating all Prisma database queries
+  - Split business logic into single-responsibility services: `ProfileService` (profile CRUD), `PhotoService` (gallery management), `InterestService` (interest catalog & selection) in `backend/src/modules/profile/services/`
+  - Refactored `ProfileController` to inject `ProfileService`, `PhotoService`, and `InterestService`, preserving 100% backward compatibility and exact REST contracts
+  - Updated `ProfileModule` registering all repositories and services
+  - Updated unit test suites (`profile.service.spec.ts`, `photo.service.spec.ts`, `interest.service.spec.ts`, `profile.controller.spec.ts` — 15 suites, 85 unit tests total across all modules)
+  - Verified E2E integration test suite (`test/profile.e2e-spec.ts` — 23 scenarios total across 3 suites) with zero API regressions
 
 ---
 
@@ -61,7 +62,7 @@ None.
 
 ## Notes
 
-Profile Interests Management is fully implemented and verified. Unit tests (13 suites, 83 tests) and E2E integration tests (23 test scenarios across 3 suites) pass cleanly.
+Profile Architecture Refactor is fully implemented and verified. Unit tests (15 suites, 85 tests) and E2E integration tests (23 test scenarios across 3 suites) pass cleanly with zero regressions.
 
 All implementation follows:
 
