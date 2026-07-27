@@ -33,6 +33,7 @@ import { UpdateProfileDto } from "../dto/update-profile.dto";
 import { InterestService } from "../services/interest.service";
 import { PhotoService } from "../services/photo.service";
 import { PreferenceService } from "../services/preference.service";
+import { ProfileCompletionService } from "../services/profile-completion.service";
 import { ProfileService } from "../services/profile.service";
 import { PromptService } from "../services/prompt.service";
 
@@ -47,6 +48,7 @@ export class ProfileController {
     private readonly interestService: InterestService,
     private readonly promptService: PromptService,
     private readonly preferenceService: PreferenceService,
+    private readonly profileCompletionService: ProfileCompletionService,
   ) {}
 
   @Get("me")
@@ -352,6 +354,53 @@ export class ProfileController {
     return {
       statusCode: HttpStatus.OK,
       message: "User preferences updated successfully",
+      data,
+    };
+  }
+
+  @Get("completion")
+  @ApiOperation({ summary: "Get profile completion status and breakdown" })
+  @ApiResponse({
+    status: 200,
+    description:
+      "Returns profile completion percentage, status, and section breakdowns.",
+    schema: {
+      type: "object",
+      properties: {
+        statusCode: { type: "number", example: 200 },
+        message: {
+          type: "string",
+          example: "Profile completion evaluated successfully",
+        },
+        data: {
+          type: "object",
+          properties: {
+            percentage: { type: "number", example: 80 },
+            isComplete: { type: "boolean", example: false },
+            completedSections: {
+              type: "array",
+              items: { type: "string" },
+              example: ["basic_profile", "interests", "prompts", "preferences"],
+            },
+            missingSections: {
+              type: "array",
+              items: { type: "string" },
+              example: ["photos"],
+            },
+          },
+        },
+      },
+    },
+  })
+  @ApiUnauthorizedResponse({
+    description: "Missing or invalid JWT token",
+  })
+  async getProfileCompletion(@CurrentUser("id") userId: string) {
+    const data =
+      await this.profileCompletionService.getProfileCompletion(userId);
+    return {
+      statusCode: HttpStatus.OK,
+      message: "Profile completion evaluated successfully",
       data,
     };
   }

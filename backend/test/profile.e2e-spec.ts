@@ -11,8 +11,8 @@ describe("ProfileController (e2e)", () => {
   let prisma: PrismaService;
   let redis: RedisService;
 
-  const testEmail1 = `e2e_pref_test1_${Date.now()}@example.com`;
-  const testEmail2 = `e2e_pref_test2_${Date.now()}@example.com`;
+  const testEmail1 = `e2e_comp_test1_${Date.now()}@example.com`;
+  const testEmail2 = `e2e_comp_test2_${Date.now()}@example.com`;
   const testPassword = "SecurePassword123!";
 
   let userId1: string;
@@ -382,6 +382,29 @@ describe("ProfileController (e2e)", () => {
       expect(res.body.data.preferredIntents).toContain(
         RelationshipIntent.LONG_TERM,
       );
+    });
+  });
+
+  describe("GET /api/v1/profile/completion", () => {
+    it("should return 401 Unauthorized for unauthenticated request", async () => {
+      await request(app.getHttpServer())
+        .get("/api/v1/profile/completion")
+        .expect(401);
+    });
+
+    it("should return completion status breakdown for authenticated user (200 OK)", async () => {
+      const res = await request(app.getHttpServer())
+        .get("/api/v1/profile/completion")
+        .set("Authorization", `Bearer ${token1}`)
+        .expect(200);
+
+      expect(res.body).toHaveProperty("statusCode", 200);
+      expect(res.body.data).toHaveProperty("percentage");
+      expect(typeof res.body.data.percentage).toBe("number");
+      expect(res.body.data).toHaveProperty("isComplete");
+      expect(typeof res.body.data.isComplete).toBe("boolean");
+      expect(Array.isArray(res.body.data.completedSections)).toBe(true);
+      expect(Array.isArray(res.body.data.missingSections)).toBe(true);
     });
   });
 });

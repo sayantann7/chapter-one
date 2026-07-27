@@ -2,72 +2,90 @@
 
 ## Feature
 
-Profile Preferences
+Profile Completion Engine
 
 ---
 
 ## Goal
 
-Implement management of user discovery preferences.
+Implement a centralized service that evaluates profile completeness.
 
-These preferences are independent of the public profile and are used later by Discovery and Matching.
+The engine computes completion percentage and determines whether the profile satisfies onboarding requirements.
 
 ---
 
 ## Scope
 
-### Retrieve Preferences
+Create:
 
-GET /api/v1/profile/preferences
-
-Return the authenticated user's discovery preferences.
-
-If none exist, return sensible defaults.
+ProfileCompletionService
 
 ---
 
-### Update Preferences
+Implement:
 
-PATCH /api/v1/profile/preferences
+GET /api/v1/profile/completion
 
-Allow updating:
+Return:
 
-- minAge
-- maxAge
-- maxDistanceKm
-- preferredGenders
-- preferredIntents
-
----
-
-### Validation
-
-Enforce:
-
-- minAge >= 18
-- maxAge <= 100
-- minAge <= maxAge
-- distance > 0
-- no duplicate enum values
+- percentage
+- completedSections
+- missingSections
+- isComplete
 
 ---
 
-### Authentication
+Sections
 
-Protect all endpoints using:
+Evaluate:
 
-- JwtAuthGuard
-- @CurrentUser()
+- Basic Profile
+- Photos
+- Interests
+- Prompts
+- Preferences
+
+Each section contributes to completion.
 
 ---
 
-### Swagger
+Rules
 
-Document every endpoint.
+Example:
+
+Basic Profile:
+- firstName
+- birthdate
+- gender
+- bio
+
+Photos:
+- minimum 2
+
+Interests:
+- minimum 3
+
+Prompts:
+- minimum 1
+
+Preferences:
+- always complete once defaults exist
 
 ---
 
-### Tests
+Authentication
+
+Protect endpoint.
+
+---
+
+Swagger
+
+Document endpoint.
+
+---
+
+Tests
 
 Write:
 
@@ -76,42 +94,36 @@ Write:
 
 Cover:
 
-- default preferences
-- update
-- invalid ranges
-- duplicate enum values
+- empty profile
+- partially complete
+- fully complete
 - unauthorized access
 
 ---
 
-## Out of Scope
+Out of Scope
 
-Do NOT implement:
+Do NOT transition user status yet.
 
-- matching
-- recommendation engine
-- discovery queries
-- completion engine
+Do NOT update onboarding.
+
+Do NOT modify profile automatically.
 
 ---
 
-## Definition of Done
+Definition of Done
 
-- GET preferences works
-- PATCH preferences works
-- defaults returned
-- validation enforced
+- completion calculation works
+- endpoint works
 - tests pass
 - build passes
 - lint passes
 
 ---
 
-## Deliverables
+Deliverables
 
-- DTOs
-- PreferenceRepository
-- PreferenceService
-- Controller updates
+- CompletionService
+- Controller update
 - Tests
 - Updated project/PROGRESS.md

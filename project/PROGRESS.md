@@ -2,7 +2,7 @@
 
 ## Current Status
 
-✅ Phase 1 — Profile Preferences Management Implemented & Verified.
+✅ Phase 1 — Profile Completion Engine Implemented & Verified.
 
 ---
 
@@ -34,16 +34,14 @@
 - Implemented **Profile Interests Management** in NestJS
 - Implemented **Profile Architecture Refactor** in NestJS
 - Implemented **Profile Prompts Management** in NestJS
-- Implemented **Profile Preferences Management** in NestJS:
-  - Created `UpdatePreferencesDto` (validating optional `minAge` 18..100, `maxAge` 18..100, `maxDistanceKm` 1..500, `preferredGenders` array with `@ArrayUnique()`, `preferredIntents` array with `@ArrayUnique()`)
-  - Created `PreferenceRepository` (`findByUserId`, `upsert`) encapsulating Prisma preference database queries
-  - Created `PreferenceService` (`getPreferences`, `updatePreferences`) handling fallback default preferences (`minAge: 18, maxAge: 99, maxDistanceKm: 50`) and age range validation (`minAge <= maxAge`)
-  - Implemented `GET /api/v1/profile/preferences` endpoint protected by `JwtAuthGuard` and `@CurrentUser()` returning user preferences or sensible default fallback
-  - Implemented `PATCH /api/v1/profile/preferences` endpoint protected by `JwtAuthGuard` and `@CurrentUser()` for creating/updating user discovery preferences
-  - Added Swagger documentation annotations across preference endpoints with Bearer auth support (`@ApiBearerAuth('Bearer')`)
-  - Updated `ProfileModule` registering `PreferenceRepository` and `PreferenceService`
-  - Created unit test suite (`preference.service.spec.ts`) and updated `profile.controller.spec.ts` (17 suites, 100 unit tests total across all modules)
-  - Updated E2E integration test suite (`test/profile.e2e-spec.ts` — 36 scenarios total across 3 suites) verifying default preferences retrieval, preference updates, age range validation (`minAge > maxAge`), duplicate enum value rejection, and 401 unauthenticated access
+- Implemented **Profile Preferences Management** in NestJS
+- Implemented **Profile Completion Engine** in NestJS:
+  - Created `ProfileCompletionService` (`getProfileCompletion`) providing read-only evaluation of profile completeness across 5 sections (basic_profile, photos, interests, prompts, preferences) at 20% weight per section
+  - Implemented `GET /api/v1/profile/completion` endpoint protected by `JwtAuthGuard` and `@CurrentUser()` returning `{ percentage, isComplete, completedSections, missingSections }`
+  - Added Swagger documentation annotations across completion endpoint with response schema and Bearer auth support (`@ApiBearerAuth('Bearer')`)
+  - Updated `ProfileModule` registering `ProfileCompletionService`
+  - Created unit test suite (`profile-completion.service.spec.ts`) and updated `profile.controller.spec.ts` (18 suites, 105 unit tests total across all modules)
+  - Updated E2E integration test suite (`test/profile.e2e-spec.ts` — 38 scenarios total across 3 suites) verifying completion status evaluation for partially complete and fully complete profile states, and 401 unauthenticated access
 
 ---
 
@@ -67,7 +65,7 @@ None.
 
 ## Notes
 
-Profile Preferences Management is fully implemented and verified. Unit tests (17 suites, 100 tests) and E2E integration tests (36 test scenarios across 3 suites) pass cleanly.
+Profile Completion Engine is fully implemented and verified. Unit tests (18 suites, 105 tests) and E2E integration tests (38 test scenarios across 3 suites) pass cleanly with zero regressions.
 
 All implementation follows:
 

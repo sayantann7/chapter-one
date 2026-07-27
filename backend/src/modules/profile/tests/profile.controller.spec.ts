@@ -3,6 +3,7 @@ import { ProfileController } from "../controllers/profile.controller";
 import { InterestService } from "../services/interest.service";
 import { PhotoService } from "../services/photo.service";
 import { PreferenceService } from "../services/preference.service";
+import { ProfileCompletionService } from "../services/profile-completion.service";
 import { ProfileService } from "../services/profile.service";
 import { PromptService } from "../services/prompt.service";
 
@@ -13,6 +14,7 @@ describe("ProfileController", () => {
   let interestService: InterestService;
   let promptService: PromptService;
   let preferenceService: PreferenceService;
+  let profileCompletionService: ProfileCompletionService;
 
   const mockProfile = {
     id: "profile-uuid-123",
@@ -65,6 +67,13 @@ describe("ProfileController", () => {
     preferredIntents: [],
   };
 
+  const mockCompletionResult = {
+    percentage: 80,
+    isComplete: false,
+    completedSections: ["basic_profile", "interests", "prompts", "preferences"],
+    missingSections: ["photos"],
+  };
+
   const mockProfileService = {
     getProfileForCurrentUser: jest.fn().mockResolvedValue(mockProfile),
     createProfile: jest.fn().mockResolvedValue(mockProfile),
@@ -98,6 +107,10 @@ describe("ProfileController", () => {
       .mockResolvedValue({ ...mockPreferences, minAge: 21, maxAge: 35 }),
   };
 
+  const mockProfileCompletionService = {
+    getProfileCompletion: jest.fn().mockResolvedValue(mockCompletionResult),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [ProfileController],
@@ -107,6 +120,10 @@ describe("ProfileController", () => {
         { provide: InterestService, useValue: mockInterestService },
         { provide: PromptService, useValue: mockPromptService },
         { provide: PreferenceService, useValue: mockPreferenceService },
+        {
+          provide: ProfileCompletionService,
+          useValue: mockProfileCompletionService,
+        },
       ],
     }).compile();
 
@@ -116,6 +133,9 @@ describe("ProfileController", () => {
     interestService = module.get<InterestService>(InterestService);
     promptService = module.get<PromptService>(PromptService);
     preferenceService = module.get<PreferenceService>(PreferenceService);
+    profileCompletionService = module.get<ProfileCompletionService>(
+      ProfileCompletionService,
+    );
   });
 
   it("should be defined", () => {
@@ -284,6 +304,19 @@ describe("ProfileController", () => {
       statusCode: 200,
       message: "User preferences updated successfully",
       data: { ...mockPreferences, minAge: 21, maxAge: 35 },
+    });
+  });
+
+  it("should call profileCompletionService.getProfileCompletion and return formatted response", async () => {
+    const res = await controller.getProfileCompletion("user-uuid-123");
+
+    expect(profileCompletionService.getProfileCompletion).toHaveBeenCalledWith(
+      "user-uuid-123",
+    );
+    expect(res).toEqual({
+      statusCode: 200,
+      message: "Profile completion evaluated successfully",
+      data: mockCompletionResult,
     });
   });
 });

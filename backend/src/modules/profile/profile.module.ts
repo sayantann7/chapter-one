@@ -10,6 +10,7 @@ import { PromptRepository } from "./repositories/prompt.repository";
 import { InterestService } from "./services/interest.service";
 import { PhotoService } from "./services/photo.service";
 import { PreferenceService } from "./services/preference.service";
+import { ProfileCompletionService } from "./services/profile-completion.service";
 import { ProfileService } from "./services/profile.service";
 import { PromptService } from "./services/prompt.service";
 
@@ -27,6 +28,7 @@ import { PromptService } from "./services/prompt.service";
     InterestService,
     PromptService,
     PreferenceService,
+    ProfileCompletionService,
   ],
   exports: [
     ProfileRepository,
@@ -39,6 +41,7 @@ import { PromptService } from "./services/prompt.service";
     InterestService,
     PromptService,
     PreferenceService,
+    ProfileCompletionService,
   ],
 })
 export class ProfileModule {}
